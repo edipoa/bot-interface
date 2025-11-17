@@ -1,0 +1,278 @@
+import { useState } from 'react';
+import { BFSidebar, BFSidebarItem } from './components/BF-Sidebar';
+import { BFIcons } from './components/BF-Icons';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { ManageGames } from './pages/ManageGames';
+import { GameDetail } from './pages/GameDetail';
+import { ManagePlayers } from './pages/ManagePlayers';
+import { ManageDebts } from './pages/ManageDebts';
+import { ManageWorkspaces } from './pages/ManageWorkspaces';
+import { ManageChats } from './pages/ManageChats';
+import { AddCredit } from './pages/AddCredit';
+import { AddDebit } from './pages/AddDebit';
+import { WorkspaceDetail } from './pages/WorkspaceDetail';
+import { UserDashboard } from './pages/UserDashboard';
+import { DevHandoff } from './pages/DevHandoff';
+import { Login } from './pages/Login';
+import './styles/globals.css';
+
+type UserRole = 'admin' | 'user';
+
+export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('admin');
+  const [activeItem, setActiveItem] = useState('dashboard');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onSuccess={() => setIsAuthenticated(true)} />;
+  }
+
+  const adminItems: BFSidebarItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: 'Home',
+      path: '/admin/dashboard',
+      roles: ['admin'],
+    },
+    {
+      id: 'games',
+      label: 'Jogos',
+      icon: 'Trophy',
+      path: '/admin/games',
+      roles: ['admin'],
+    },
+    {
+      id: 'players',
+      label: 'Jogadores',
+      icon: 'Users',
+      path: '/admin/players',
+      roles: ['admin'],
+    },
+    {
+      id: 'debts',
+      label: 'Débitos',
+      icon: 'DollarSign',
+      path: '/admin/debts',
+      roles: ['admin'],
+      badge: '12',
+    },
+    {
+      id: 'workspaces',
+      label: 'Workspaces',
+      icon: 'Layers',
+      path: '/admin/workspaces',
+      roles: ['admin'],
+    },
+    {
+      id: 'chats',
+      label: 'Chats',
+      icon: 'MessageSquare',
+      path: '/admin/chats',
+      roles: ['admin'],
+    },
+    {
+      id: 'add-credit',
+      label: 'Adicionar Crédito',
+      icon: 'PlusCircle',
+      path: '/admin/add-credit',
+      roles: ['admin'],
+    },
+    {
+      id: 'add-debit',
+      label: 'Adicionar Débito',
+      icon: 'MinusCircle',
+      path: '/admin/add-debit',
+      roles: ['admin'],
+    },
+    {
+      id: 'dev-handoff',
+      label: 'Dev Handoff',
+      icon: 'Settings',
+      path: '/dev-handoff',
+      roles: ['admin'],
+    },
+  ];
+
+  const userItems: BFSidebarItem[] = [
+    {
+      id: 'user-dashboard',
+      label: 'Meu Painel',
+      icon: 'Home',
+      path: '/user/dashboard',
+      roles: ['user'],
+    },
+    {
+      id: 'user-profile',
+      label: 'Meu Perfil',
+      icon: 'User',
+      path: '/user/profile',
+      roles: ['user'],
+    },
+  ];
+
+  const sidebarItems = userRole === 'admin' ? adminItems : userItems;
+
+  const handleWorkspaceSelect = (workspaceId: string) => {
+    setSelectedWorkspaceId(workspaceId);
+    setActiveItem('workspaces'); // Ensure workspaces is active
+  };
+
+  const handleBackToWorkspaces = () => {
+    setSelectedWorkspaceId(null);
+    setActiveItem('workspaces'); // Stay on workspaces page
+  };
+
+  const handleGameSelect = (gameId: string) => {
+    setSelectedGameId(gameId);
+    setActiveItem('games'); // Stay on games page
+  };
+
+  const handleBackToGames = () => {
+    setSelectedGameId(null);
+    setActiveItem('games');
+  };
+
+  const renderContent = () => {
+    // If a game is selected, show GameDetail
+    if (selectedGameId) {
+      return (
+        <GameDetail
+          gameId={selectedGameId}
+          onBack={handleBackToGames}
+        />
+      );
+    }
+
+    // If a workspace is selected, show WorkspaceDetail
+    if (selectedWorkspaceId) {
+      return (
+        <WorkspaceDetail
+          workspaceId={selectedWorkspaceId}
+          onBack={handleBackToWorkspaces}
+        />
+      );
+    }
+
+    if (userRole === 'admin') {
+      switch (activeItem) {
+        case 'dashboard':
+          return <AdminDashboard />;
+        case 'games':
+          return <ManageGames onSelectGame={handleGameSelect} />;
+        case 'players':
+          return <ManagePlayers />;
+        case 'debts':
+          return <ManageDebts />;
+        case 'workspaces':
+          return <ManageWorkspaces onSelectWorkspace={handleWorkspaceSelect} />;
+        case 'chats':
+          return <ManageChats mode="create" />;
+        case 'add-credit':
+          return <AddCredit />;
+        case 'add-debit':
+          return <AddDebit />;
+        case 'dev-handoff':
+          return <DevHandoff />;
+        default:
+          return <AdminDashboard />;
+      }
+    } else {
+      switch (activeItem) {
+        case 'user-dashboard':
+          return <UserDashboard />;
+        case 'user-profile':
+          return (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-[--foreground] mb-2">Meu Perfil</h1>
+                <p className="text-[--muted-foreground]">
+                  Gerencie suas informações pessoais
+                </p>
+              </div>
+              <div className="bg-[var(--card)] p-8 rounded-lg text-center">
+                <p className="text-[var(--muted-foreground)]">
+                  Página de perfil em construção
+                </p>
+              </div>
+            </div>
+          );
+        default:
+          return <UserDashboard />;
+      }
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-[var(--background)]">
+      <BFSidebar
+        items={sidebarItems}
+        activeItem={activeItem}
+        onItemClick={setActiveItem}
+        userRole={userRole}
+        userName={userRole === 'admin' ? 'Admin User' : 'João Silva'}
+        userEmail={userRole === 'admin' ? 'admin@botfut.com' : 'joao.silva@email.com'}
+        onLogout={() => console.log('Logout')}
+        data-test="main-sidebar"
+      />
+
+      <main className="flex-1 overflow-y-auto bg-[var(--background)]">
+        {/* Top Bar - Hide when viewing workspace detail */}
+        {!selectedWorkspaceId && (
+          <div className="sticky top-0 z-10 bg-[var(--card)] border-b border-[var(--border)] px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h2 className="text-[var(--foreground)]">Bot Fut</h2>
+                <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setUserRole('admin');
+                    setActiveItem('dashboard');
+                  }}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    userRole === 'admin'
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--muted)]'
+                  }`}
+                  data-test="switch-to-admin"
+                >
+                  Admin View
+                </button>
+                <button
+                  onClick={() => {
+                    setUserRole('user');
+                    setActiveItem('user-dashboard');
+                  }}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    userRole === 'user'
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--muted)]'
+                  }`}
+                  data-test="switch-to-user"
+                >
+                  User View
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors relative">
+                <BFIcons.Bell size={20} />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--destructive)] rounded-full" />
+              </button>
+              <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors">
+                <BFIcons.Settings size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* Content Area */}
+        <div className={selectedWorkspaceId ? '' : 'p-6'}>{renderContent()}</div>
+      </main>
+    </div>
+  );
+}
