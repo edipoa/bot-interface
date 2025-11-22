@@ -10,6 +10,7 @@ import { BFPhoneInput } from '../components/BF-PhoneInput';
 import { BFOTPInput } from '../components/BF-OTPInput';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
 import { BFButton } from '../components/BF-Button';
+import { authAPI } from '../lib/axios';
 
 /**
  * EXEMPLO 1: PhoneInput Básico
@@ -224,15 +225,22 @@ export const FullLoginFlowExample = () => {
   const handleSendCode = async () => {
     setError('');
     
+    
     if (!isPhoneValid()) {
       setError('Digite um número de telefone válido');
       return;
     }
 
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLoading(false);
-    setStep('otp');
+    
+    try {
+      await authAPI.requestOTP(phone);
+      setStep('otp');
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyCode = async () => {
@@ -244,13 +252,15 @@ export const FullLoginFlowExample = () => {
     }
 
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setLoading(false);
     
-    alert('Login realizado com sucesso!');
-    setStep('phone');
-    setPhone('');
-    setOtp('');
+    try {
+      await authAPI.verifyOTP(phone, otp);
+      alert('Login realizado com sucesso!');
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Código inválido. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

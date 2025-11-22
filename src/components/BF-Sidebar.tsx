@@ -46,13 +46,14 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-full
+          fixed top-0 left-0 h-screen
           bg-[#0A1628] text-white
           transition-all duration-300 ease-in-out
           border-r border-[#1A2B42]
           z-50
+          flex flex-col
           ${isCollapsed ? 'w-20' : 'w-64'}
-          lg:relative lg:z-0
+          lg:sticky lg:z-0
         `}
         data-test={dataTest}
       >
@@ -147,136 +148,3 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
     </>
   );
 };
-
-/*
-Vue 3 Implementation Example:
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { BFLogo } from './BFLogo.vue'
-import { BFIcon } from './BFIcon.vue'
-import type { BFIconName } from './BFIcons'
-
-interface SidebarItem {
-  id: string
-  label: string
-  icon: BFIconName
-  path: string
-  badge?: string | number
-  roles?: ('admin' | 'user')[]
-}
-
-interface Props {
-  items: SidebarItem[]
-  activeItem: string
-  userRole: 'admin' | 'user'
-  userName: string
-  userEmail: string
-  dataTest?: string
-}
-
-const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  itemClick: [itemId: string]
-  logout: []
-}>()
-
-const isCollapsed = ref(false)
-
-const filteredItems = computed(() => 
-  props.items.filter(item => !item.roles || item.roles.includes(props.userRole))
-)
-
-const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value
-}
-</script>
-
-<template>
-  <aside
-    :class="[
-      'fixed top-0 left-0 h-full',
-      'bg-[--sidebar] text-[--sidebar-foreground]',
-      'transition-all duration-300 ease-in-out',
-      'border-r border-[--sidebar-border]',
-      'z-50 lg:relative lg:z-0',
-      isCollapsed ? 'w-20' : 'w-64'
-    ]"
-    :data-test="dataTest"
-  >
-    <!-- Logo Header -->
-    <div class="h-16 flex items-center justify-between px-4 border-b border-[--sidebar-border]">
-      <BFLogo v-if="!isCollapsed" size="sm" class="text-white" />
-      <button
-        @click="toggleSidebar"
-        class="p-2 rounded-md hover:bg-[--sidebar-accent] transition-colors"
-        data-test="sidebar-toggle"
-      >
-        <BFIcon name="Menu" :size="20" />
-      </button>
-    </div>
-
-    <!-- Navigation Items -->
-    <nav class="flex-1 overflow-y-auto py-4">
-      <ul class="space-y-1 px-3">
-        <li v-for="item in filteredItems" :key="item.id">
-          <button
-            @click="emit('itemClick', item.id)"
-            :class="[
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg',
-              'transition-all duration-200',
-              activeItem === item.id
-                ? 'bg-[--sidebar-primary] text-[--sidebar-primary-foreground]'
-                : 'text-[--sidebar-foreground] hover:bg-[--sidebar-accent]',
-              isCollapsed ? 'justify-center' : ''
-            ]"
-            :data-test="`sidebar-item-${item.id}`"
-            :title="isCollapsed ? item.label : undefined"
-          >
-            <BFIcon :name="item.icon" :size="20" class="flex-shrink-0" />
-            <template v-if="!isCollapsed">
-              <span class="flex-1 text-left">{{ item.label }}</span>
-              <span v-if="item.badge" class="px-2 py-0.5 text-xs rounded-full bg-[--primary] text-white">
-                {{ item.badge }}
-              </span>
-            </template>
-          </button>
-        </li>
-      </ul>
-    </nav>
-
-    <!-- User Section -->
-    <div class="border-t border-[--sidebar-border] p-4">
-      <div v-if="!isCollapsed" class="space-y-3">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-[--primary] flex items-center justify-center text-white">
-            {{ userName.charAt(0).toUpperCase() }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="truncate">{{ userName }}</p>
-            <p class="text-xs text-[--muted-foreground] truncate">{{ userEmail }}</p>
-          </div>
-        </div>
-        <button
-          @click="emit('logout')"
-          class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[--destructive] hover:bg-[--sidebar-accent] transition-colors"
-          data-test="sidebar-logout"
-        >
-          <BFIcon name="LogOut" :size="20" />
-          <span>Sair</span>
-        </button>
-      </div>
-      <button
-        v-else
-        @click="emit('logout')"
-        class="w-full flex items-center justify-center p-2 rounded-lg text-[--destructive] hover:bg-[--sidebar-accent] transition-colors"
-        data-test="sidebar-logout"
-        title="Sair"
-      >
-        <BFIcon name="LogOut" :size="20" />
-      </button>
-    </div>
-  </aside>
-</template>
-*/

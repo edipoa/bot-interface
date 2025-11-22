@@ -15,19 +15,21 @@ import { UserDashboard } from './pages/UserDashboard';
 import { DevHandoff } from './pages/DevHandoff';
 import { Login } from './pages/Login';
 import './styles/globals.css';
+import { useAuth } from './components/ProtectedRoute';
+import { authAPI } from './lib/axios';
 
 type UserRole = 'admin' | 'user';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState<UserRole>('admin');
   const [activeItem, setActiveItem] = useState('dashboard');
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  // Show login page if not authenticated
   if (!isAuthenticated) {
-    return <Login onSuccess={() => setIsAuthenticated(true)} />;
+    return <Login />;
   }
 
   const adminItems: BFSidebarItem[] = [
@@ -114,21 +116,21 @@ export default function App() {
     },
   ];
 
-  const sidebarItems = userRole === 'admin' ? adminItems : userItems;
+  const sidebarItems = user.role === 'admin' ? adminItems : userItems;
 
   const handleWorkspaceSelect = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
-    setActiveItem('workspaces'); // Ensure workspaces is active
+    setActiveItem('workspaces');
   };
 
   const handleBackToWorkspaces = () => {
     setSelectedWorkspaceId(null);
-    setActiveItem('workspaces'); // Stay on workspaces page
+    setActiveItem('workspaces'); 
   };
 
   const handleGameSelect = (gameId: string) => {
     setSelectedGameId(gameId);
-    setActiveItem('games'); // Stay on games page
+    setActiveItem('games');
   };
 
   const handleBackToGames = () => {
@@ -136,8 +138,7 @@ export default function App() {
     setActiveItem('games');
   };
 
-  const renderContent = () => {
-    // If a game is selected, show GameDetail
+  const renderContent = () => {    
     if (selectedGameId) {
       return (
         <GameDetail
@@ -147,7 +148,6 @@ export default function App() {
       );
     }
 
-    // If a workspace is selected, show WorkspaceDetail
     if (selectedWorkspaceId) {
       return (
         <WorkspaceDetail
@@ -157,7 +157,7 @@ export default function App() {
       );
     }
 
-    if (userRole === 'admin') {
+    if (user.role === 'admin') {
       switch (activeItem) {
         case 'dashboard':
           return <AdminDashboard />;
@@ -212,10 +212,12 @@ export default function App() {
         items={sidebarItems}
         activeItem={activeItem}
         onItemClick={setActiveItem}
-        userRole={userRole}
-        userName={userRole === 'admin' ? 'Admin User' : 'João Silva'}
-        userEmail={userRole === 'admin' ? 'admin@botfut.com' : 'joao.silva@email.com'}
-        onLogout={() => console.log('Logout')}
+        userRole={user.role}
+        userName={user.name || 'Usuário'}
+        userEmail={user.phone}
+        onLogout={async () => {
+          await authAPI.logout();
+        }}
         data-test="main-sidebar"
       />
 

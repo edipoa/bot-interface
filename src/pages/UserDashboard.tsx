@@ -4,10 +4,11 @@ import { BFBadge } from '../components/BF-Badge';
 import { BFButton } from '../components/BF-Button';
 import { BFIcons } from '../components/BF-Icons';
 import { mockDebts, mockGames, mockTransactions } from '../lib/mockData';
+import { useAuth } from '../components/ProtectedRoute';
 
 export const UserDashboard: React.FC = () => {
+  const { user } = useAuth();
   const userId = '1';
-  const userName = 'João Silva';
 
   const userDebts = mockDebts.filter((d) => d.playerId === userId);
   const pendingDebts = userDebts.filter((d) => d.status === 'pending' || d.status === 'overdue');
@@ -30,7 +31,7 @@ export const UserDashboard: React.FC = () => {
     <div className="space-y-6" data-test="user-dashboard">
       {/* Header */}
       <div>
-        <h1 className="text-[--foreground] mb-2">Olá, {userName}! 👋</h1>
+        <h1 className="text-[--foreground] mb-2">Olá, {user?.name || 'Usuário'}! 👋</h1>
         <p className="text-[--muted-foreground]">
           Acompanhe seus débitos e próximos jogos
         </p>

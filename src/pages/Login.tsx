@@ -9,29 +9,27 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BFPhoneInput } from '../components/BF-PhoneInput';
 import { BFOTPInput } from '../components/BF-OTPInput';
 import { BFButton } from '../components/BF-Button';
 import { BFLogo } from '../components/BF-Logo';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
 import { ArrowLeft, Smartphone } from 'lucide-react';
+import { authAPI } from '../lib/axios';
 
 type LoginStep = 'phone' | 'otp';
 
-interface LoginProps {
-  onSuccess?: () => void;
-}
-
-export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
+export const Login: React.FC = () => {
+  const navigate = useNavigate();
   // Estado do formulário
   const [step, setStep] = useState<LoginStep>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  
+
   // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [canResend, setCanResend] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(60);
 
@@ -56,23 +54,16 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     }
 
     setLoading(true);
-
-    // Simula chamada de API
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Simula sucesso (90% de chance)
-    if (Math.random() > 0.1) {
+    try {
+      await authAPI.requestOTP(phone);
       setStep('otp');
-      startResendCountdown();
-      setLoading(false);
-    } else {
-      // Simula erro
-      setError('Erro ao enviar código. Tente novamente.');
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Simula verificação de código
   const handleVerifyCode = async () => {
     setError('');
 
@@ -83,30 +74,39 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
 
     setLoading(true);
 
-    // Simula chamada de API
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const response = await authAPI.verifyOTP(phone, otp);
+      console.log('Verify OTP response:', response);
 
-    // Simula verificação (90% de sucesso para melhor UX de teste)
-    if (Math.random() > 0.1) {
-      // Sucesso
-      setLoading(false);
-      setSuccess(true);
-      
-      // Mostra mensagem de sucesso por 1s antes de redirecionar
-      setTimeout(() => {
-        if (onSuccess) {
-          onSuccess();
-        }
-      }, 1000);
-    } else {
-      // Código inválido
-      setError('Código inválido. Verifique e tente novamente.');
-      setOtp('');
+      // Aguarda os tokens serem salvos
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Verifica se os tokens foram salvos
+      const savedToken = localStorage.getItem('accessToken');
+      console.log('Token saved in localStorage:', savedToken ? 'Yes' : 'No');
+
+      if (!savedToken) {
+        setError('Erro ao salvar credenciais. Tente novamente.');
+        setLoading(false);
+        return;
+      }
+
+      const userRole = response.user?.role || 'user';
+      console.log('User role:', userRole);
+
+      // Redireciona baseado no role do usuário
+      if (userRole === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/user/dashboard');
+      }
+    } catch (error: any) {
+      console.error('Verify OTP error:', error);
+      setError(error.response?.data?.message || 'Código inválido. Tente novamente.');
       setLoading(false);
     }
   };
 
-  // Countdown para reenvio
   const startResendCountdown = () => {
     setCanResend(false);
     setResendCountdown(60);
@@ -123,7 +123,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     }, 1000);
   };
 
-  // Reenviar código
   const handleResendCode = async () => {
     if (!canResend) return;
 
@@ -131,14 +130,18 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     setLoading(true);
     setOtp('');
 
-    // Simula reenvio
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
+    try {
+      await authAPI.requestOTP(phone);
+      setStep('otp');
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
     startResendCountdown();
     setLoading(false);
   };
 
-  // Voltar para tela de telefone
   const handleBack = () => {
     setStep('phone');
     setOtp('');
@@ -164,8 +167,8 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
             Bem-vindo ao Bot Fut
           </h1>
           <p className="text-blue-200">
-            {step === 'phone' 
-              ? 'Entre com seu número de telefone' 
+            {step === 'phone'
+              ? 'Entre com seu número de telefone'
               : 'Digite o código de verificação'
             }
           </p>
@@ -199,16 +202,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
                 variant="error"
                 message={error}
                 onClose={() => setError('')}
-              />
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-6">
-              <BFAlertMessage
-                variant="success"
-                title="Sucesso!"
-                message="Login realizado com sucesso. Redirecionando..."
               />
             </div>
           )}
@@ -251,7 +244,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
               {/* Botão voltar */}
               <button
                 onClick={handleBack}
-                disabled={loading || success}
+                disabled={loading}
                 className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
                 data-test="back-button"
               >
@@ -273,7 +266,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
                 value={otp}
                 onChange={setOtp}
                 loading={loading}
-                disabled={success}
                 autoFocus
               />
 
@@ -282,35 +274,33 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
                 size="lg"
                 fullWidth
                 onClick={handleVerifyCode}
-                disabled={!isOtpValid() || loading || success}
+                disabled={!isOtpValid() || loading}
                 loading={loading}
                 data-test="verify-button"
               >
-                {loading ? 'Verificando...' : success ? 'Redirecionando...' : 'Verificar código'}
+                {loading ? 'Verificando...' : 'Verificar código'}
               </BFButton>
 
               {/* Reenviar código */}
-              {!success && (
-                <div className="text-center">
-                  {canResend ? (
-                    <button
-                      onClick={handleResendCode}
-                      disabled={loading}
-                      className="text-sm text-[var(--bf-blue-primary)] hover:underline disabled:opacity-50"
-                      data-test="resend-button"
-                    >
-                      Reenviar código
-                    </button>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Reenviar código em{' '}
-                      <span className="text-[var(--bf-blue-primary)]">
-                        {resendCountdown}s
-                      </span>
-                    </p>
-                  )}
-                </div>
-              )}
+              <div className="text-center">
+                {canResend ? (
+                  <button
+                    onClick={handleResendCode}
+                    disabled={loading}
+                    className="text-sm text-[var(--bf-blue-primary)] hover:underline disabled:opacity-50"
+                    data-test="resend-button"
+                  >
+                    Reenviar código
+                  </button>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Reenviar código em{' '}
+                    <span className="text-[var(--bf-blue-primary)]">
+                      {resendCountdown}s
+                    </span>
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
