@@ -1,15 +1,5 @@
-/**
- * Axios Instance with Authentication Interceptor
- * 
- * Configuração do axios com interceptor para:
- * - Adicionar automaticamente o token de autenticação nos requests
- * - Redirecionar para login quando receber erro 401 (não autenticado)
- * - Tentar renovar token automaticamente quando expirado
- */
-
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Configuração base da API
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const api = axios.create({
@@ -84,7 +74,6 @@ api.interceptors.request.use(
  */
 api.interceptors.response.use(
   (response) => {
-    // Resposta bem-sucedida, retorna normalmente
     return response;
   },
   async (error: AxiosError) => {
@@ -276,14 +265,145 @@ export const debtsAPI = {
 
 
 /**
- * API de Jogos
+ * API de Games (Jogos)
  */
 export const gamesAPI = {
+  /**
+   * Busca todos os jogos com paginação e filtros
+   */
+  getAllGames: async (page: number = 1, limit: number = 10, status?: string, search?: string) => {
+    const params: any = { page, limit };
+    if (status && status !== 'all') params.status = status;
+    if (search) params.search = search;
+    
+    const response = await api.get('/games', { params });
+    return response.data;
+  },
+  
+  /**
+   * Cria um novo jogo
+   */
+  createGame: async (data: {
+    name: string;
+    type: string;
+    date: string;
+    time: string;
+    location: string;
+    maxPlayers: number;
+    pricePerPlayer: number;
+    chatId: string;
+    workspaceId: string;
+  }) => {
+    const response = await api.post('/games', data);
+    return response.data;
+  },
+  
+  /**
+   * Cancela/deleta um jogo
+   */
+  deleteGame: async (gameId: string) => {
+    const response = await api.delete(`/games/${gameId}`);
+    return response.data;
+  },
+  
+  /**
+   * Busca um jogo específico por ID
+   */
+  getGameById: async (gameId: string) => {
+    const response = await api.get(`/games/${gameId}`);
+    return response.data;
+  },
+  
+  /**
+   * Fecha um jogo
+   */
+  closeGame: async (gameId: string) => {
+    const response = await api.post(`/games/${gameId}/close`);
+    return response.data;
+  },
+  
+  /**
+   * Remove um jogador de um jogo
+   */
+  removePlayerFromGame: async (gameId: string, playerId: string) => {
+    const response = await api.delete(`/games/${gameId}/players/${playerId}`);
+    return response.data;
+  },
+  
+  /**
+   * Marca/desmarca um jogador como pago
+   */
+  togglePlayerPayment: async (gameId: string, playerId: string, isPaid: boolean) => {
+    const response = await api.patch(`/games/${gameId}/players/${playerId}/payment`, { isPaid });
+    return response.data;
+  },
+  
   /**
    * Busca todos os jogos abertos do usuário autenticado
    */
   getMyOpenGames: async () => {
     const response = await api.get(`players/${tokenService.getUser()?.id}/games`);
+    return response.data;
+  },
+  
+  /**
+   * Busca estatísticas dos jogos
+   */
+  getStats: async () => {
+    const response = await api.get('/games/stats');
+    return response.data.data;
+  },
+  
+  /**
+   * Adiciona um jogador ao jogo
+   */
+  addPlayerToGame: async (gameId: string, phone: string, name: string, isGoalkeeper: boolean, guestName?: string) => {
+    const body: any = {
+      phone,
+      name,
+      isGoalkeeper
+    };
+    
+    if (guestName) {
+      body.guestName = guestName;
+    }
+    
+    const response = await api.post(`/games/${gameId}/players`, body);
+    return response.data;
+  },
+};
+
+/**
+ * API de Chats
+ */
+export const chatsAPI = {
+  /**
+   * Busca todos os chats
+   */
+  getAllChats: async () => {
+    const response = await api.get('/chats');
+    return response.data;
+  },
+  /**
+   * Busca chats por workspace
+   */
+  getChatsByWorkspace: async (workspaceId: string) => {
+    const response = await api.get('/chats', {
+      params: { workspaceId }
+    });
+    return response.data;
+  },
+};
+
+/**
+ * API de Workspaces
+ */
+export const workspacesAPI = {
+  /**
+   * Busca todos os workspaces
+   */
+  getAllWorkspaces: async () => {
+    const response = await api.get('/workspaces');
     return response.data;
   },
 };
@@ -314,6 +434,20 @@ export const playersAPI = {
     const response = await api.put(`/players/${tokenService.getUser()?.id}`, {
       name,
       isGoalkeeper,
+    });
+    return response.data;
+  },
+  
+  /**
+   * Busca jogadores por nome ou telefone
+   */
+  searchPlayers: async (search: string) => {
+    const response = await api.get('/players', {
+      params: { 
+        search,
+        status: 'active',
+        sortBy: 'name'
+      }
     });
     return response.data;
   },

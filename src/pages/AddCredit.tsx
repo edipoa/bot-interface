@@ -102,8 +102,6 @@ export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
       
       // Simula busca de usuário
       setTimeout(() => {
-        const numbers = formData.phone.replace(/\D/g, '');
-        
         // Simula: 90% de chance de encontrar usuário
         if (Math.random() > 0.1) {
           setUserInfo({
@@ -369,12 +367,9 @@ Método: ${paymentMethodOptions.find(opt => opt.value === formData.paymentMethod
               {/* Telefone */}
               <div>
                 <BFPhoneInput
-                  label="Telefone do usuário"
                   value={formData.phone}
                   onChange={(value) => updateField('phone', value)}
-                  error={errors.phone}
                   disabled={loading}
-                  helperText="Digite o telefone para buscar o usuário"
                   data-test="phone-input"
                 />
 

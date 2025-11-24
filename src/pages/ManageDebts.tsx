@@ -171,7 +171,7 @@ export const ManageDebts: React.FC = () => {
             <BFInput
               placeholder="Buscar por jogador ou jogo..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(value) => setSearchTerm(value)}
               icon={<BFIcons.Search size={20} />}
               fullWidth
               data-test="search-debts"

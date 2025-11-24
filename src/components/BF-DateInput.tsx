@@ -1,23 +1,16 @@
-/**
- * BF-DateInput Component
- * 
- * Input customizado para data no formato dd/mm
- * - Máscara automática
- * - Validação de formato
- * - Estados de erro e desabilitado
- */
-
 import React, { useState } from 'react';
 import { Calendar } from 'lucide-react';
 
 interface BFDateInputProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: string; // Formato yyyy-mm-dd (ISO)
+  onChange: (value: string) => void; // Retorna yyyy-mm-dd
   error?: string;
   disabled?: boolean;
   label?: string;
   helperText?: string;
   placeholder?: string;
+  fullWidth?: boolean;
+  required?: boolean;
   'data-test'?: string;
 }
 
@@ -27,62 +20,91 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
   error,
   disabled = false,
   label = 'Data',
-  helperText = 'Formato dd/mm, ex.: 13/11',
-  placeholder = '13/11',
+  helperText = 'Formato dd/mm/yyyy, ex.: 13/11/2024',
+  placeholder = '13/11/2024',
+  fullWidth = false,
+  required = false,
   'data-test': dataTest = 'bf-date-input',
 }) => {
   const [focused, setFocused] = useState(false);
+  const [internalValue, setInternalValue] = useState('');
 
-  // Formata a data dd/mm
+  React.useEffect(() => {
+    if (value) {
+      setInternalValue(formatDisplayValue(value));
+    } else {
+      setInternalValue('');
+    }
+  }, [value]);
+
+  const formatDisplayValue = (isoDate: string): string => {
+    if (!isoDate) return '';
+    const [year, month, day] = isoDate.split('-');
+    if (!year || !month || !day) return '';
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatISOValue = (displayDate: string): string => {
+    const numbers = displayDate.replace(/\D/g, '');
+    if (numbers.length !== 8) return '';
+    
+    const day = numbers.slice(0, 2);
+    const month = numbers.slice(2, 4);
+    const year = numbers.slice(4, 8);
+    
+    return `${year}-${month}-${day}`;
+  };
+
   const formatDate = (input: string): string => {
-    // Remove tudo que não é número
     const numbers = input.replace(/\D/g, '');
+    const limited = numbers.slice(0, 8);
     
-    // Limita a 4 dígitos (ddmm)
-    const limited = numbers.slice(0, 4);
-    
-    // Aplica formatação
     if (limited.length <= 2) {
       return limited;
-    } else {
+    } else if (limited.length <= 4) {
       return `${limited.slice(0, 2)}/${limited.slice(2)}`;
+    } else {
+      return `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatDate(e.target.value);
-    onChange(formatted);
-  };
-
-  // Valida formato dd/mm
-  const isValidFormat = (): boolean => {
-    const regex = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])$/;
-    return regex.test(value);
+    setInternalValue(formatted);
+    
+    if (formatted.length === 10) {
+      const isoDate = formatISOValue(formatted);
+      if (isoDate) {
+        onChange(isoDate);
+      }
+    } else {
+      if (value) {
+        onChange('');
+      }
+    }
   };
 
   return (
-    <div className="w-full" data-test={dataTest}>
-      {/* Label */}
+    <div className={fullWidth ? 'w-full' : ''} data-test={dataTest}>
       {label && (
         <label
           htmlFor="date-input"
           className="block mb-2 text-sm text-foreground"
         >
           {label}
+          {required && <span className="text-destructive ml-1">*</span>}
         </label>
       )}
 
-      {/* Input Container */}
       <div
         className={`
           relative flex items-center gap-3 px-4 h-12
-          bg-white border-2 rounded-xl transition-all
+          bg-white dark:bg-gray-800 border-2 rounded-xl transition-all
           ${focused && !error ? 'border-[var(--bf-blue-primary)] shadow-lg shadow-blue-500/10' : ''}
           ${error ? 'border-destructive' : 'border-border'}
           ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}
         `}
       >
-        {/* Ícone */}
         <Calendar
           className={`
             w-5 h-5 transition-colors
@@ -91,17 +113,16 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
           `}
         />
 
-        {/* Input */}
         <input
           id="date-input"
           type="text"
-          value={value}
+          value={internalValue}
           onChange={handleChange}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           disabled={disabled}
           placeholder={placeholder}
-          maxLength={5}
+          maxLength={10}
           className={`
             flex-1 bg-transparent outline-none
             text-foreground placeholder:text-muted-foreground
@@ -113,7 +134,6 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
         />
       </div>
 
-      {/* Mensagem de erro */}
       {error && (
         <p
           id="date-error"
@@ -126,7 +146,6 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
         </p>
       )}
 
-      {/* Helper text */}
       {!error && helperText && (
         <p className="mt-2 text-xs text-muted-foreground">
           {helperText}

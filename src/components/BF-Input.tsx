@@ -41,13 +41,15 @@ export const BFInput: React.FC<BFInputProps> = ({
     ${fullWidth ? 'w-full' : ''}
     ${icon && iconPosition === 'left' ? 'pl-10' : ''}
     ${icon && iconPosition === 'right' ? 'pr-10' : ''}
-    ${error ? 'border-[var(--destructive)] focus:ring-[var(--destructive)]' : 'border-[var(--border)] focus:ring-[var(--primary)]'}
-    bg-[var(--input-background)]
+    ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-[var(--primary)]'}
+    bg-white dark:bg-gray-800
+    text-gray-900 dark:text-gray-100
     border
     rounded-[var(--radius-md)]
     transition-all duration-200
     focus:outline-none focus:ring-2 focus:ring-offset-0
     disabled:opacity-50 disabled:cursor-not-allowed
+    placeholder:text-gray-400 dark:placeholder:text-gray-500
     ${className}
   `;
 
@@ -104,8 +106,9 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
 }) => {
   const textareaClasses = `
     ${fullWidth ? 'w-full' : ''}
-    ${error ? 'border-[var(--destructive)] focus:ring-[var(--destructive)]' : 'border-[var(--border)] focus:ring-[var(--primary)]'}
-    bg-[var(--input-background)]
+    ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-[var(--primary)]'}
+    bg-white dark:bg-gray-800
+    text-gray-900 dark:text-gray-100
     border
     rounded-[var(--radius-md)]
     px-4 py-3
@@ -113,6 +116,7 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
     transition-all duration-200
     focus:outline-none focus:ring-2 focus:ring-offset-0
     disabled:opacity-50 disabled:cursor-not-allowed
+    placeholder:text-gray-400 dark:placeholder:text-gray-500
     resize-y
     ${className}
   `;
@@ -138,92 +142,3 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
     </div>
   );
 };
-
-/*
-Vue 3 Implementation Example:
-
-// BFInput.vue
-<script setup lang="ts">
-import { computed } from 'vue'
-
-interface Props {
-  modelValue: string
-  label?: string
-  error?: string
-  helperText?: string
-  iconPosition?: 'left' | 'right'
-  inputSize?: 'sm' | 'md' | 'lg'
-  fullWidth?: boolean
-  dataTest?: string
-  disabled?: boolean
-  type?: string
-  placeholder?: string
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  iconPosition: 'left',
-  inputSize: 'md',
-  fullWidth: false,
-  type: 'text'
-})
-
-const emit = defineEmits<{
-  'update:modelValue': [value: string]
-}>()
-
-const inputClasses = computed(() => {
-  const sizeClasses = {
-    sm: 'h-8 px-3',
-    md: 'h-10 px-4',
-    lg: 'h-12 px-5',
-  }
-  
-  return [
-    sizeClasses[props.inputSize],
-    props.fullWidth ? 'w-full' : '',
-    props.error ? 'border-[--destructive] focus:ring-[--destructive]' : 'border-[--border] focus:ring-[--primary]',
-    'bg-[--input-background]',
-    'border',
-    'rounded-[--radius-md]',
-    'transition-all duration-200',
-    'focus:outline-none focus:ring-2 focus:ring-offset-0',
-    'disabled:opacity-50 disabled:cursor-not-allowed'
-  ].join(' ')
-})
-
-const handleInput = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
-}
-</script>
-
-<template>
-  <div :class="{ 'w-full': fullWidth }" :data-test="dataTest">
-    <label v-if="label" class="block mb-2 text-[--foreground]">
-      {{ label }}
-    </label>
-    <div class="relative">
-      <div v-if="$slots.icon && iconPosition === 'left'" class="absolute left-3 top-1/2 -translate-y-1/2 text-[--muted-foreground]">
-        <slot name="icon" />
-      </div>
-      <input
-        :class="inputClasses"
-        :value="modelValue"
-        :type="type"
-        :placeholder="placeholder"
-        :disabled="disabled"
-        @input="handleInput"
-      />
-      <div v-if="$slots.icon && iconPosition === 'right'" class="absolute right-3 top-1/2 -translate-y-1/2 text-[--muted-foreground]">
-        <slot name="icon" />
-      </div>
-    </div>
-    <p v-if="error" class="mt-1.5 text-[--destructive] text-sm" :data-test="`${dataTest}-error`">
-      {{ error }}
-    </p>
-    <p v-else-if="helperText" class="mt-1.5 text-[--muted-foreground] text-sm">
-      {{ helperText }}
-    </p>
-  </div>
-</template>
-*/

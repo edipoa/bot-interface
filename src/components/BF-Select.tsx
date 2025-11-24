@@ -1,13 +1,3 @@
-/**
- * BF-Select Component
- * 
- * Select customizado com estilo do design system Bot Fut
- * Usa shadcn Select para melhor controle de estilo do dropdown
- * - Estados de erro e desabilitado
- * - Dropdown estilizado
- * - Totalmente acessível
- */
-
 import React from 'react';
 import {
   Select,
@@ -45,11 +35,9 @@ export const BFSelect: React.FC<BFSelectProps> = ({
   placeholder = 'Selecione...',
   'data-test': dataTest = 'bf-select',
 }) => {
-  // Converte valor para string para compatibilidade com Radix Select
   const stringValue = String(value);
 
   const handleValueChange = (newValue: string) => {
-    // Encontra a opção original para preservar o tipo
     const option = options.find(opt => String(opt.value) === newValue);
     if (option) {
       onChange(option.value);
@@ -80,13 +68,14 @@ export const BFSelect: React.FC<BFSelectProps> = ({
             h-12 px-4 rounded-xl border-2 transition-all duration-200
             font-normal text-left
             ${error 
-              ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/20 focus-visible:shadow-lg focus-visible:shadow-red-500/10' 
-              : 'border-border focus-visible:border-[var(--bf-blue-primary)] focus-visible:ring-[var(--bf-blue-primary)]/10 focus-visible:shadow-lg focus-visible:shadow-blue-500/10'
+              ? 'border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20 focus-visible:shadow-lg focus-visible:shadow-red-500/10' 
+              : 'border-gray-300 dark:border-gray-700 focus-visible:border-[var(--bf-blue-primary)] focus-visible:ring-[var(--bf-blue-primary)]/10 focus-visible:shadow-lg focus-visible:shadow-blue-500/10'
             }
             ${disabled 
-              ? 'opacity-50 cursor-not-allowed bg-muted' 
-              : 'bg-white dark:bg-card hover:border-[var(--bf-blue-primary)]/50'
+              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800' 
+              : 'bg-white dark:bg-gray-800 hover:border-[var(--bf-blue-primary)]/50'
             }
+            text-gray-900 dark:text-gray-100
           `}
           data-test={`${dataTest}-trigger`}
           aria-invalid={!!error}
@@ -97,8 +86,8 @@ export const BFSelect: React.FC<BFSelectProps> = ({
         
         <SelectContent
           className={`
-            bg-white dark:bg-card
-            border-2 border-border 
+            bg-white dark:bg-gray-900
+            border-2 border-gray-300 dark:border-gray-700
             rounded-xl shadow-xl
             max-h-[300px] overflow-y-auto
             z-50 p-1
@@ -112,7 +101,8 @@ export const BFSelect: React.FC<BFSelectProps> = ({
               className={`
                 px-4 py-3 cursor-pointer 
                 transition-all duration-150
-                hover:bg-accent focus:bg-accent
+                text-gray-900 dark:text-gray-100
+                hover:bg-gray-100 dark:hover:bg-gray-800 focus:bg-gray-100 dark:focus:bg-gray-800
                 data-[state=checked]:bg-[var(--bf-blue-primary)] 
                 data-[state=checked]:text-white
                 data-[state=checked]:font-medium

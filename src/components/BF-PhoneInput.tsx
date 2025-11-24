@@ -8,7 +8,7 @@
  * - Acessibilidade completa
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Phone } from 'lucide-react';
 
 interface BFPhoneInputProps {
@@ -53,17 +53,6 @@ export const BFPhoneInput: React.FC<BFPhoneInputProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     onChange(formatted);
-  };
-
-  // Retorna apenas os números (sem formatação)
-  const getRawValue = (): string => {
-    return value.replace(/\D/g, '');
-  };
-
-  // Valida se tem 10 ou 11 dígitos
-  const isValid = (): boolean => {
-    const raw = getRawValue();
-    return raw.length === 10 || raw.length === 11;
   };
 
   return (

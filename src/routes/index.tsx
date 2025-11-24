@@ -1,20 +1,11 @@
-/**
- * Configuração das Rotas da Aplicação
- * 
- * Define todas as rotas públicas e privadas do sistema
- */
-
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { RootRedirect } from '../components/RootRedirect';
 
-// Layouts
 import AppLayout from '../layouts/AppLayout';
 
-// Páginas Públicas
 import { Login } from '../pages/Login';
 
-// Páginas Admin (Protegidas)
 import { AdminDashboard } from '../pages/AdminDashboard';
 import { ManageGames } from '../pages/ManageGames';
 import { GameDetail } from '../pages/GameDetail';
@@ -26,21 +17,15 @@ import { ManageChats } from '../pages/ManageChats';
 import { AddCredit } from '../pages/AddCredit';
 import { AddDebit } from '../pages/AddDebit';
 
-// Páginas User (Protegidas)
 import { UserDashboard } from '../pages/UserDashboard';
 import { UserProfile } from '../pages/UserProfile';
 
-// Página de Dev
-import { DevHandoff } from '../pages/DevHandoff';
-
 export const router = createBrowserRouter([
-  // Rotas Públicas
   {
     path: '/login',
     element: <Login />,
   },
 
-  // Rotas Protegidas - Admin
   {
     path: '/admin',
     element: (
@@ -93,10 +78,17 @@ export const router = createBrowserRouter([
         path: 'debits/add',
         element: <AddDebit />,
       },
+      {
+        path: 'my-dashboard',
+        element: <UserDashboard />,
+      },
+      {
+        path: 'my-profile',
+        element: <UserProfile />,
+      },
     ],
   },
 
-  // Rotas Protegidas - User
   {
     path: '/user',
     element: (
@@ -120,19 +112,11 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Rota de Desenvolvimento
-  {
-    path: '/dev',
-    element: <DevHandoff />,
-  },
-
-  // Rota padrão - verifica autenticação antes de redirecionar
   {
     path: '/',
     element: <RootRedirect />,
   },
 
-  // 404 - Página não encontrada
   {
     path: '*',
     element: (

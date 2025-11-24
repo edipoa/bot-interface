@@ -31,7 +31,7 @@ export interface Game {
   maxPlayers: number;
   currentPlayers: number;
   pricePerPlayer: number;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'closed';
   createdBy: string;
   createdAt: string;
 }
@@ -117,7 +117,7 @@ export interface Chat {
   id: string;
   workspaceId: string;
   name: string;
-  chatId: string; // ID do chat na plataforma (WhatsApp, Telegram, etc)
+  chatId: string; 
   label?: string;
   type: 'group' | 'private';
   status: 'active' | 'inactive' | 'archived';

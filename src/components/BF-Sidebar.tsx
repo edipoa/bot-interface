@@ -9,6 +9,8 @@ export interface BFSidebarItem {
   path: string;
   badge?: string | number;
   roles?: ('admin' | 'user')[];
+  separator?: boolean; 
+  sectionLabel?: string;
 }
 
 export interface BFSidebarProps {
@@ -94,6 +96,21 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
 
               return (
                 <li key={item.id}>
+                  {/* Separador de Seção */}
+                  {item.separator && !isCollapsed && (
+                    <div className="pt-4 pb-2">
+                      <div className="border-t border-[#1A2B42] mb-2"></div>
+                      {item.sectionLabel && (
+                        <span className="text-xs text-white/50 uppercase tracking-wider px-3">
+                          {item.sectionLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {item.separator && isCollapsed && (
+                    <div className="border-t border-[#1A2B42] my-2"></div>
+                  )}
+                  
                   <button
                     onClick={() => {
                       onItemClick(item.id);

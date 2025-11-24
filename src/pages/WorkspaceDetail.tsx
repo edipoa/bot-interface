@@ -7,7 +7,7 @@ import { BFBadge } from '../components/BF-Badge';
 import { BFCard } from '../components/BF-Card';
 import { BFIcons } from '../components/BF-Icons';
 import { mockWorkspaces, mockChats } from '../lib/mockData';
-import type { Workspace, Chat } from '../lib/types';
+import type { Chat } from '../lib/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';

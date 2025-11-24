@@ -1,9 +1,3 @@
-/**
- * Layout Principal da Aplicação
- * 
- * Layout usado para páginas autenticadas com sidebar
- */
-
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { BFSidebar, BFSidebarItem } from '../components/BF-Sidebar';
@@ -24,7 +18,6 @@ export default function AppLayout({ role }: AppLayoutProps) {
     return localStorage.getItem('theme') === 'dark';
   });
 
-  // Aplicar tema ao carregar
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const isDark = savedTheme === 'dark';
@@ -80,6 +73,23 @@ export default function AppLayout({ role }: AppLayoutProps) {
       label: 'Chats',
       icon: 'MessageCircle',
       path: '/admin/chats',
+      roles: ['admin'],
+    },
+    // Seção de Jogador
+    {
+      id: 'my-dashboard',
+      label: 'Meu Painel',
+      icon: 'Layers',
+      path: '/admin/my-dashboard',
+      roles: ['admin'],
+      separator: true,
+      sectionLabel: 'Como Jogador',
+    },
+    {
+      id: 'my-profile',
+      label: 'Meu Perfil',
+      icon: 'User',
+      path: '/admin/my-profile',
       roles: ['admin'],
     },
   ];

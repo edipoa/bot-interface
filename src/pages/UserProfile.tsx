@@ -1,8 +1,3 @@
-/**
- * User Profile Page
- * Página de perfil do usuário
- */
-
 import React, { useState } from 'react';
 import { useAuth } from '../components/ProtectedRoute';
 import { BFCard } from '../components/BF-Card';
@@ -18,7 +13,6 @@ export const UserProfile: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
-  // Form state
   const [formData, setFormData] = useState({
     name: user?.name || '',
     isGoalkeeper: user?.isGoalkeeper || false,
@@ -60,20 +54,20 @@ export const UserProfile: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl" data-test="user-profile">
+    <div className="space-y-6" data-test="user-profile">
       {/* Header com saudação */}
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-gray-900 dark:text-white mb-2">Olá, {user?.name || 'Usuário'}! 👋</h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">Olá, {user?.name || 'Usuário'}! 👋</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Gerencie suas informações pessoais
             </p>
           </div>
           
           {!isEditing && (
             <BFButton
-              variant="outline"
+              variant="primary"
               size="md"
               icon={<BFIcons.Edit size={16} />}
               onClick={() => setIsEditing(true)}
@@ -126,14 +120,17 @@ export const UserProfile: React.FC = () => {
 
       {/* Profile Form */}
       <BFCard variant="elevated" padding="lg">
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Seção: Informações Pessoais */}
           <div>
-            <h3 className="text-base font-medium text-[--foreground] mb-4 pb-2 border-b border-[--border]">
-              Informações Pessoais
-            </h3>
+            <div className="flex items-center gap-2 mb-6">
+              <BFIcons.User size={20} className="text-[--primary]" />
+              <h3 className="text-lg font-semibold text-[--foreground]">
+                Informações Pessoais
+              </h3>
+            </div>
             
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-[--foreground] mb-2">
                   Nome Completo {isEditing && <span className="text-[--destructive]">*</span>}
@@ -149,8 +146,8 @@ export const UserProfile: React.FC = () => {
                     />
                   </div>
                 ) : (
-                  <div className="px-4 py-2.5 bg-[--accent] rounded-lg">
-                    <p className="text-[--foreground]">{user?.name || 'Não informado'}</p>
+                  <div className="px-4 py-3 bg-[--accent]/50 rounded-lg border border-[--border]">
+                    <p className="text-[--foreground] font-medium">{user?.name || 'Não informado'}</p>
                   </div>
                 )}
               </div>
@@ -160,18 +157,18 @@ export const UserProfile: React.FC = () => {
                   Telefone
                 </label>
                 <div className="relative">
-                  <div className="px-4 py-2.5 bg-[--muted]/20 rounded-lg border border-[--border]/50">
-                    <p className="text-[--muted-foreground]">
+                  <div className="px-4 py-3 bg-[--muted]/20 rounded-lg border border-[--border]/50 flex items-center gap-3">
+                    <BFIcons.Phone size={16} className="text-[--muted-foreground]" />
+                    <p className="text-[--foreground] flex-1">
                       {user?.phone 
                         ? user.phone.replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 ($2) $3-$4')
                         : 'Não informado'}
                     </p>
-                  </div>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     <BFIcons.Lock size={14} className="text-[--muted-foreground]" />
                   </div>
                 </div>
-                <p className="text-xs text-[--muted-foreground] mt-1.5">
+                <p className="text-xs text-[--muted-foreground] mt-2 flex items-center gap-1.5">
+                  <BFIcons.Info size={12} />
                   Telefone não pode ser alterado
                 </p>
               </div>
@@ -180,32 +177,38 @@ export const UserProfile: React.FC = () => {
 
           {/* Seção: Preferências de Jogo */}
           <div>
-            <h3 className="text-base font-medium text-[--foreground] mb-4 pb-2 border-b border-[--border]">
-              Preferências de Jogo
-            </h3>
+            <div className="flex items-center gap-2 mb-6">
+              <BFIcons.Target size={20} className="text-[--primary]" />
+              <h3 className="text-lg font-semibold text-[--foreground]">
+                Preferências de Jogo
+              </h3>
+            </div>
             
             <div className="space-y-4">
               <div className={`
-                p-4 rounded-lg border transition-colors
+                p-5 rounded-lg border transition-all duration-200
                 ${isEditing 
-                  ? 'bg-[--accent] border-[--border] hover:border-[--primary]/50' 
+                  ? 'bg-[--accent]/30 border-[--border] hover:border-[--primary]/50 hover:shadow-sm' 
                   : 'bg-[--muted]/10 border-[--border]/50'
                 }
                 ${!isEditing && 'opacity-75'}
               `}>
-                <label className="flex items-start gap-3 cursor-pointer">
+                <label className="flex items-start gap-4 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={formData.isGoalkeeper}
                     onChange={(e) => setFormData({ ...formData, isGoalkeeper: e.target.checked })}
                     disabled={!isEditing || loading}
-                    className="w-5 h-5 mt-0.5 rounded border-[--border] text-[--primary] focus:ring-[--primary] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-5 h-5 mt-0.5 rounded border-[--border] text-[--primary] focus:ring-2 focus:ring-[--primary] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   />
                   <div className="flex-1">
-                    <span className="text-sm font-medium text-[--foreground] block mb-1">
-                      Sou goleiro
-                    </span>
-                    <span className="text-xs text-[--muted-foreground]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base font-medium text-[--foreground]">
+                        Sou goleiro
+                      </span>
+                      <span className="text-xl">🧤</span>
+                    </div>
+                    <span className="text-sm text-[--muted-foreground]">
                       Marque esta opção se você prefere jogar como goleiro
                     </span>
                   </div>
@@ -218,12 +221,12 @@ export const UserProfile: React.FC = () => {
           {isEditing && (
             <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 border-t border-[--border]">
               <BFButton
-                variant="outline"
+                variant="danger"
                 size="md"
                 onClick={handleCancel}
                 disabled={loading}
                 icon={<BFIcons.X size={16} />}
-                fullWidth
+                className="sm:flex-1"
               >
                 Cancelar
               </BFButton>
@@ -233,7 +236,7 @@ export const UserProfile: React.FC = () => {
                 onClick={handleSave}
                 disabled={loading || !formData.name.trim()}
                 icon={loading ? undefined : <BFIcons.CheckCircle size={16} />}
-                fullWidth
+                className="sm:flex-1"
               >
                 {loading ? 'Salvando...' : 'Salvar Alterações'}
               </BFButton>

@@ -21,7 +21,6 @@ import {
   Save, 
   CheckCircle, 
   Calendar,
-  DollarSign,
   Smartphone,
   Building2,
   MessageSquare

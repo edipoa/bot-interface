@@ -12,7 +12,6 @@ import { AddCredit } from './pages/AddCredit';
 import { AddDebit } from './pages/AddDebit';
 import { WorkspaceDetail } from './pages/WorkspaceDetail';
 import { UserDashboard } from './pages/UserDashboard';
-import { DevHandoff } from './pages/DevHandoff';
 import { Login } from './pages/Login';
 import './styles/globals.css';
 import { useAuth } from './components/ProtectedRoute';
@@ -175,8 +174,6 @@ export default function App() {
           return <AddCredit />;
         case 'add-debit':
           return <AddDebit />;
-        case 'dev-handoff':
-          return <DevHandoff />;
         default:
           return <AdminDashboard />;
       }

@@ -1,5 +1,4 @@
 import React from 'react';
-import { BFBadge } from './BF-Badge';
 import { BFIcons } from './BF-Icons';
 
 export interface BFTableColumn<T = any> {

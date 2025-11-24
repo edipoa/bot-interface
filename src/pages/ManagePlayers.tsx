@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 export const ManagePlayers: React.FC = () => {
-  const [players, setPlayers] = useState<Player[]>(mockPlayers);
+  const [players] = useState<Player[]>(mockPlayers);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -183,9 +183,9 @@ export const ManagePlayers: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <BFInput
-              placeholder="Buscar por nome, email ou telefone..."
+              placeholder="Buscar por nome ou telefone..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(value) => setSearchTerm(value)}
               icon={<BFIcons.Search size={20} />}
               fullWidth
               data-test="search-players"

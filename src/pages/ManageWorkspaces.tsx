@@ -39,10 +39,8 @@ import {
   DollarSign,
   CreditCard,
   MessageSquare,
-  Users,
   CheckCircle,
   XCircle,
-  Settings,
   Layers,
 } from 'lucide-react';
 
@@ -158,7 +156,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
             </label>
             <BFSelect
               value={weekday}
-              onChange={setWeekday}
+              onChange={(value) => setWeekday(String(value))}
               options={weekdayOptions}
               placeholder="Selecione o dia"
               data-test="weekday-select"
@@ -183,7 +181,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
             <BFInput
               label="Título"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(value) => setTitle(value)}
               placeholder="Ex: ⚽ CAMPO VIANA"
               data-test="title-input"
               fullWidth
@@ -209,7 +207,7 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
             <BFInput
               label="Chave PIX"
               value={pix}
-              onChange={(e) => setPix(e.target.value)}
+              onChange={(value) => setPix(value)}
               placeholder="fcjogasimples@gmail.com"
               data-test="pix-input"
               fullWidth
@@ -242,10 +240,8 @@ const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 };
 
 // Componente principal
-export const ManageWorkspaces: React.FC<ManageWorkspacesProps> = ({
-  onSelectWorkspace,
-}) => {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(mockWorkspaces);
+export const ManageWorkspaces: React.FC<ManageWorkspacesProps> = () => {
+  const [workspaces] = useState<Workspace[]>(mockWorkspaces);
   const [chats, setChats] = useState<Chat[]>(mockChats);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingChat, setEditingChat] = useState<{

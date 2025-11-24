@@ -1,12 +1,3 @@
-/**
- * BF-TimeInput Component
- * 
- * Input customizado para horário no formato HH:mm
- * - Máscara automática
- * - Validação de formato
- * - Estados de erro e desabilitado
- */
-
 import React, { useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -31,15 +22,11 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
 }) => {
   const [focused, setFocused] = useState(false);
 
-  // Formata o horário HH:mm
   const formatTime = (input: string): string => {
-    // Remove tudo que não é número
     const numbers = input.replace(/\D/g, '');
     
-    // Limita a 4 dígitos (HHmm)
     const limited = numbers.slice(0, 4);
     
-    // Aplica formatação
     if (limited.length <= 2) {
       return limited;
     } else {
@@ -50,12 +37,6 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatTime(e.target.value);
     onChange(formatted);
-  };
-
-  // Valida formato HH:mm
-  const isValid = (): boolean => {
-    const regex = /^([0-1][0-9]|2[0-3]):([0-5][0-9])$/;
-    return regex.test(value);
   };
 
   return (
@@ -74,18 +55,18 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
       <div
         className={`
           relative flex items-center gap-3 px-4 h-12
-          bg-white border-2 rounded-xl transition-all
+          bg-white dark:bg-gray-800 border-2 rounded-xl transition-all
           ${focused && !error ? 'border-[var(--bf-blue-primary)] shadow-lg shadow-blue-500/10' : ''}
-          ${error ? 'border-destructive' : 'border-border'}
-          ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}
+          ${error ? 'border-red-500' : 'border-gray-300 dark:border-gray-700'}
+          ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''}
         `}
       >
         {/* Ícone */}
         <Clock
           className={`
             w-5 h-5 transition-colors
-            ${focused && !error ? 'text-[var(--bf-blue-primary)]' : 'text-muted-foreground'}
-            ${error ? 'text-destructive' : ''}
+            ${focused && !error ? 'text-[var(--bf-blue-primary)]' : 'text-gray-500 dark:text-gray-400'}
+            ${error ? 'text-red-500' : ''}
           `}
         />
 
@@ -102,7 +83,7 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
           maxLength={5}
           className={`
             flex-1 bg-transparent outline-none
-            text-foreground placeholder:text-muted-foreground
+            text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
             ${disabled ? 'cursor-not-allowed' : ''}
           `}
           data-test={`${dataTest}-field`}

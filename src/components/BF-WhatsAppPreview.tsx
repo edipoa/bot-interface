@@ -1,12 +1,3 @@
-/**
- * BF-WhatsAppPreview Component
- * 
- * Preview visual de mensagens do WhatsApp
- * - Simula o visual de uma mensagem do bot
- * - Suporta múltiplas linhas
- * - Ícones e formatação
- */
-
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
 
@@ -20,19 +11,19 @@ interface BFWhatsAppPreviewProps {
 
 const variantConfig = {
   success: {
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
+    bgColor: 'bg-green-50 dark:bg-green-950',
+    borderColor: 'border-green-200 dark:border-green-800',
     iconColor: 'text-[var(--bf-green-primary)]',
   },
   info: {
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
+    bgColor: 'bg-blue-50 dark:bg-blue-950',
+    borderColor: 'border-blue-200 dark:border-blue-800',
     iconColor: 'text-[var(--bf-blue-primary)]',
   },
   default: {
-    bgColor: 'bg-gray-50',
-    borderColor: 'border-gray-200',
-    iconColor: 'text-gray-500',
+    bgColor: 'bg-gray-50 dark:bg-gray-900',
+    borderColor: 'border-gray-200 dark:border-gray-700',
+    iconColor: 'text-gray-500 dark:text-gray-400',
   },
 };
 
@@ -59,21 +50,21 @@ export const BFWhatsAppPreview: React.FC<BFWhatsAppPreviewProps> = ({
         <div className={`${config.iconColor} flex-shrink-0`}>
           {icon || <MessageSquare className="w-5 h-5" />}
         </div>
-        <h4 className="text-foreground">{title}</h4>
+        <h4 className="text-gray-900 dark:text-gray-100 font-semibold">{title}</h4>
       </div>
 
       {/* Conteúdo da mensagem */}
       <div
-        className="pl-8 text-sm text-foreground whitespace-pre-line font-mono"
+        className="pl-8 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line font-mono"
         style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
       >
         {content}
       </div>
 
       {/* Badge "WhatsApp Bot" */}
-      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-200">
+      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
         <MessageSquare className="w-4 h-4 text-green-500" />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-gray-500 dark:text-gray-400">
           Mensagem do Bot
         </span>
       </div>
