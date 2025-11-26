@@ -161,12 +161,12 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
     }
   };
 
-  const handleTogglePayment = async (playerId: string, currentStatus: boolean, playerName: string) => {
+  const handleTogglePayment = async (slot: number, currentStatus: boolean, playerName: string) => {
     if (!gameId) return;
 
     try {
-      setTogglingPayment(playerId);
-      await gamesAPI.togglePlayerPayment(gameId, playerId, !currentStatus);
+      setTogglingPayment(String(slot));
+      await gamesAPI.togglePlayerPayment(gameId, slot, !currentStatus);
       toast.success(`💰 ${playerName} marcado como ${!currentStatus ? 'pago' : 'pendente'}!`);
       fetchGameDetails(); 
     } catch (error: any) {
@@ -372,17 +372,17 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       {(gameInfo?.status === 'open' || gameInfo?.status === 'closed') && (
         <td className="px-4 py-3">
           <div className="flex items-center gap-1.5">
-            {!player.isGoalkeeper && (
+            {!player.isGoalkeeper && gameInfo?.status === 'closed' && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <BFButton
                     variant={player.isPaid ? "success" : "success"}
                     size="sm"
-                    onClick={() => handleTogglePayment(player.id, player.isPaid, player.name)}
-                    disabled={togglingPayment === player.id}
-                    data-test={`toggle-payment-${player.id}`}
+                    onClick={() => handleTogglePayment(player.slot, player.isPaid, player.name)}
+                    disabled={togglingPayment === String(player.slot)}
+                    data-test={`toggle-payment-${player.slot}`}
                   >
-                    {togglingPayment === player.id ? '...' : (player.isPaid ? '✓' : '$')}
+                    {togglingPayment === String(player.slot) ? '...' : (player.isPaid ? '✓' : '$')}
                   </BFButton>
                 </TooltipTrigger>
                 <TooltipContent>

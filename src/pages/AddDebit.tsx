@@ -1,14 +1,3 @@
-/**
- * AddDebit Page
- * 
- * Tela para registrar débito financeiro associado a um jogo
- * Baseada no comando /addDebit com vários formatos aceitos
- * 
- * Layout em 2 colunas:
- * - Esquerda: Formulário completo
- * - Direita: Preview da operação
- */
-
 import React, { useState, useEffect } from 'react';
 import { BFInput } from '../components/BF-Input';
 import { BFButton } from '../components/BF-Button';
@@ -29,7 +18,6 @@ import {
   X
 } from 'lucide-react';
 
-// Tipos
 interface DebitForm {
   date: string;
   workspaceSlug: string;
@@ -57,7 +45,6 @@ interface AddDebitProps {
   onBack?: () => void;
 }
 
-// Opções de categoria
 const categoryOptions = [
   { value: 'general', label: 'Geral (general)' },
   { value: 'aluguel', label: 'Aluguel campo' },
@@ -66,7 +53,6 @@ const categoryOptions = [
 ];
 
 export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
-  // Estados do formulário
   const [formData, setFormData] = useState<DebitForm>({
     date: '',
     workspaceSlug: '',
@@ -76,21 +62,17 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     category: 'general',
   });
 
-  // Estados de validação
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null);
   const [workspaceInfo, setWorkspaceInfo] = useState<WorkspaceInfo | null>(null);
 
-  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [checkingGame, setCheckingGame] = useState(false);
   const [checkingWorkspace, setCheckingWorkspace] = useState(false);
 
-  // Atualiza campo
   const updateField = (field: keyof DebitForm, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Limpa erro do campo
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[field];
@@ -98,14 +80,11 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     });
   };
 
-  // Busca workspace por slug (simulado)
   useEffect(() => {
     if (formData.workspaceSlug.length >= 3) {
       setCheckingWorkspace(true);
       
-      // Simula busca de workspace
       setTimeout(() => {
-        // Lista de workspaces fictícios
         const workspaces: Record<string, string> = {
           'arena': 'Arena Futsal',
           'campo-do-viana': 'Campo do Viana',
@@ -144,16 +123,13 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     }
   }, [formData.workspaceSlug]);
 
-  // Busca jogo por data + workspace (simulado)
   useEffect(() => {
     const isValidDate = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])$/.test(formData.date);
     
     if (isValidDate && workspaceInfo?.found) {
       setCheckingGame(true);
       
-      // Simula busca de jogo
       setTimeout(() => {
-        // Simula: 80% de chance de encontrar jogo
         if (Math.random() > 0.2) {
           setGameInfo({
             id: '123',
@@ -187,13 +163,11 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     }
   }, [formData.date, workspaceInfo]);
 
-  // Atualiza valor monetário
   const handleAmountChange = (value: string, cents: number) => {
     updateField('amount', value);
     updateField('amountCents', cents);
   };
 
-  // Validações
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -219,7 +193,6 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Salvar
   const handleSave = async () => {
     if (!validateForm()) {
       return;
@@ -228,28 +201,23 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     setLoading(true);
     setSuccess(false);
 
-    // Simula chamada de API
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     setLoading(false);
     setSuccess(true);
 
-    // Esconde mensagem de sucesso após 5s
     setTimeout(() => setSuccess(false), 5000);
   };
 
-  // Formata valor para exibição
   const formatMoney = (cents: number): string => {
     return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
   };
 
-  // Gera nota final
   const getFinalNote = (): string => {
     const baseNote = formData.note.trim() || 'Pagamento ao campo';
     return `${baseNote} do jogo ${formData.date} (${gameInfo?.title || 'Jogo'})`;
   };
 
-  // Preview do resumo
   const renderSummaryPreview = () => {
     const hasAllData = gameInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
 
@@ -310,7 +278,6 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     );
   };
 
-  // Preview da mensagem do bot (sucesso)
   const renderBotSuccessPreview = () => {
     const hasAllData = gameInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
 
@@ -330,7 +297,6 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     );
   };
 
-  // Preview de erros possíveis
   const renderBotErrorsPreview = () => {
     const errorMessages = [
       '❌ Data obrigatória. Use dd/mm. Ex.: 13/11',

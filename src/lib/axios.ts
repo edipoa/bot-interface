@@ -258,7 +258,7 @@ export const debtsAPI = {
    * Marca débito como pago
    */
   markAsPaid: async (debtId: string, paidAt?: string) => {
-    const response = await api.patch(`/debts/${debtId}/pay`, { paidAt });
+    const response = await api.post(`/debts/${debtId}/pay`, { paidAt });
     return response.data;
   },
 };
@@ -275,11 +275,11 @@ export const gamesAPI = {
     const params: any = { page, limit };
     if (status && status !== 'all') params.status = status;
     if (search) params.search = search;
-    
+
     const response = await api.get('/games', { params });
     return response.data;
   },
-  
+
   /**
    * Cria um novo jogo
    */
@@ -297,7 +297,7 @@ export const gamesAPI = {
     const response = await api.post('/games', data);
     return response.data;
   },
-  
+
   /**
    * Cancela/deleta um jogo
    */
@@ -305,7 +305,7 @@ export const gamesAPI = {
     const response = await api.delete(`/games/${gameId}`);
     return response.data;
   },
-  
+
   /**
    * Busca um jogo específico por ID
    */
@@ -313,7 +313,7 @@ export const gamesAPI = {
     const response = await api.get(`/games/${gameId}`);
     return response.data;
   },
-  
+
   /**
    * Fecha um jogo
    */
@@ -321,7 +321,7 @@ export const gamesAPI = {
     const response = await api.post(`/games/${gameId}/close`);
     return response.data;
   },
-  
+
   /**
    * Remove um jogador de um jogo
    */
@@ -329,15 +329,15 @@ export const gamesAPI = {
     const response = await api.delete(`/games/${gameId}/players/${playerId}`);
     return response.data;
   },
-  
+
   /**
    * Marca/desmarca um jogador como pago
    */
-  togglePlayerPayment: async (gameId: string, playerId: string, isPaid: boolean) => {
-    const response = await api.patch(`/games/${gameId}/players/${playerId}/payment`, { isPaid });
+  togglePlayerPayment: async (gameId: string, slot: number, isPaid: boolean) => {
+    const response = await api.patch(`/games/${gameId}/players/${slot}/payment`, { isPaid });
     return response.data;
   },
-  
+
   /**
    * Busca todos os jogos abertos do usuário autenticado
    */
@@ -345,7 +345,7 @@ export const gamesAPI = {
     const response = await api.get(`players/${tokenService.getUser()?.id}/games`);
     return response.data;
   },
-  
+
   /**
    * Busca estatísticas dos jogos
    */
@@ -353,7 +353,7 @@ export const gamesAPI = {
     const response = await api.get('/games/stats');
     return response.data.data;
   },
-  
+
   /**
    * Adiciona um jogador ao jogo
    */
@@ -363,11 +363,11 @@ export const gamesAPI = {
       name,
       isGoalkeeper
     };
-    
+
     if (guestName) {
       body.guestName = guestName;
     }
-    
+
     const response = await api.post(`/games/${gameId}/players`, body);
     return response.data;
   },
@@ -428,27 +428,88 @@ export const ledgersAPI = {
  */
 export const playersAPI = {
   /**
-   * Atualiza os dados do jogador autenticado
+   * Atualiza os dados de um jogador
    */
-  updatePlayer: async (name: string, isGoalkeeper: boolean) => {
-    const response = await api.put(`/players/${tokenService.getUser()?.id}`, {
-      name,
-      isGoalkeeper,
-    });
+  updatePlayer: async (playerId: string, data: {
+    name?: string;
+    nick?: string;
+    phone?: string;
+    status?: 'active' | 'inactive' | 'suspended';
+    isGoalie?: boolean;
+  }) => {
+    const response = await api.put(`/players/${playerId}`, data);
     return response.data;
   },
-  
+
   /**
-   * Busca jogadores por nome ou telefone
+   * Busca jogadores com filtros e paginação
+   */
+  getPlayers: async (params?: {
+    search?: string;
+    status?: 'active' | 'inactive' | 'all';
+    page?: number;
+    limit?: number;
+  }) => {
+    const queryParams: any = {
+      page: params?.page || 1,
+      limit: params?.limit || 10,
+    };
+
+    if (params?.search) {
+      queryParams.search = params.search;
+    }
+
+    if (params?.status && params.status !== 'all') {
+      queryParams.status = params.status;
+    }
+
+    const response = await api.get('/players', { params: queryParams });
+    return response.data;
+  },
+
+  /**
+   * Busca jogadores por nome ou telefone (legacy)
    */
   searchPlayers: async (search: string) => {
     const response = await api.get('/players', {
-      params: { 
+      params: {
         search,
         status: 'active',
         sortBy: 'name'
       }
     });
+    return response.data;
+  },
+
+  /**
+   * Busca um jogador específico por ID
+   */
+  getPlayerById: async (playerId: string) => {
+    const response = await api.get(`/players/${playerId}`);
+    return response.data;
+  },
+
+  /**
+   * Busca débitos de um jogador específico
+   */
+  getPlayerDebts: async (playerId: string) => {
+    const response = await api.get(`/players/${playerId}/debts`);
+    return response.data;
+  },
+
+  /**
+   * Marca um débito como pago
+   */
+  payPlayerDebt: async (playerId: string, debtId: string) => {
+    const response = await api.patch(`/players/${playerId}/debts/${debtId}/pay`);
+    return response.data;
+  },
+
+  /**
+   * Exclui um jogador
+   */
+  deletePlayer: async (playerId: string) => {
+    const response = await api.delete(`/players/${playerId}`);
     return response.data;
   },
 };

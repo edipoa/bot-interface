@@ -74,13 +74,13 @@ export const UserDashboard: React.FC = () => {
         const ledgersResponse = await ledgersAPI.getMyLedgers(1, 5);
         const ledgersData = ledgersResponse.ledgers || [];
         const mappedLedgers = Array.isArray(ledgersData) ? ledgersData.map((ledger: any) => ({
+          ...ledger,
           id: ledger._id,
           type: ledger.type === 'credit' ? 'payment' : 'debit',
           description: ledger.note,
           amount: ledger.type === 'credit' ? ledger.amountCents / 100 : -(ledger.amountCents / 100),
           date: ledger.createdAt,
-          status: ledger.status,
-          ...ledger
+          status: ledger.status
         })) : [];
         setTransactions(mappedLedgers);
         setTransactionsPagination({
@@ -230,18 +230,6 @@ export const UserDashboard: React.FC = () => {
           <BFCardHeader
             title="Débitos Pendentes"
             subtitle={`${pendingDebts.length} ${pendingDebts.length === 1 ? 'débito' : 'débitos'}`}
-          // action={
-          //   totalDebt > 0 && (
-          //     <BFButton
-          //       variant="primary"
-          //       size="sm"
-          //       icon={<BFIcons.DollarSign size={16} />}
-          //       data-test="pay-all-button"
-          //     >
-          //       Pagar Tudo
-          //     </BFButton>
-          //   )
-          // }
           />
           <BFCardContent>
             {pendingDebts.length === 0 ? (
@@ -361,13 +349,13 @@ export const UserDashboard: React.FC = () => {
                       <div
                         className={`p-2 rounded-lg flex-shrink-0 ${transaction.type === 'payment'
                           ? 'bg-[--success]/10'
-                          : 'bg-[--warning]/10'
+                          : 'bg-[--destructive]/10'
                           }`}
                       >
                         {transaction.type === 'payment' ? (
                           <BFIcons.TrendingUp size={18} color="var(--success)" className="sm:w-5 sm:h-5" />
                         ) : (
-                          <BFIcons.TrendingDown size={18} color="var(--warning)" className="sm:w-5 sm:h-5" />
+                          <BFIcons.TrendingDown size={18} color="var(--destructive)" className="sm:w-5 sm:h-5" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">

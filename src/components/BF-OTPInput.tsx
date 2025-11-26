@@ -36,18 +36,15 @@ export const BFOTPInput: React.FC<BFOTPInputProps> = ({
   const [focused, setFocused] = useState<number | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Garante que o valor tenha o tamanho correto
   const digits = value.padEnd(length, ' ').slice(0, length).split('');
 
   useEffect(() => {
-    // Auto-focus no primeiro campo vazio
     if (autoFocus && inputRefs.current[0]) {
       inputRefs.current[0].focus();
     }
   }, [autoFocus]);
 
   const handleChange = (index: number, digit: string) => {
-    // Aceita apenas números
     if (digit && !/^\d$/.test(digit)) return;
 
     const newDigits = [...digits];
@@ -55,19 +52,16 @@ export const BFOTPInput: React.FC<BFOTPInputProps> = ({
     const newValue = newDigits.join('').trim();
     onChange(newValue);
 
-    // Move para o próximo campo se digitou um número
     if (digit && index < length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Backspace: apaga e volta para o campo anterior
     if (e.key === 'Backspace' && !digits[index].trim() && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
 
-    // Setas de navegação
     if (e.key === 'ArrowLeft' && index > 0) {
       e.preventDefault();
       inputRefs.current[index - 1]?.focus();
@@ -85,7 +79,6 @@ export const BFOTPInput: React.FC<BFOTPInputProps> = ({
     
     if (numbers) {
       onChange(numbers);
-      // Foca no último campo preenchido ou no próximo vazio
       const focusIndex = Math.min(numbers.length, length - 1);
       inputRefs.current[focusIndex]?.focus();
     }
@@ -93,12 +86,10 @@ export const BFOTPInput: React.FC<BFOTPInputProps> = ({
 
   return (
     <div className="w-full" data-test={dataTest}>
-      {/* Label */}
       <label className="block mb-3 text-sm text-foreground">
         Código de verificação
       </label>
 
-      {/* OTP Inputs */}
       <div className="flex items-center justify-center gap-2 sm:gap-3">
         {digits.map((digit, index) => (
           <input

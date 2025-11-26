@@ -9,6 +9,7 @@ import { BFMoneyInput } from '../components/BF-MoneyInput';
 import { BFBadge } from '../components/BF-Badge';
 import { BFTable } from '../components/BF-Table';
 import { BFIcons } from '../components/BF-Icons';
+import { BFPagination } from '../components/BF-Pagination';
 import { gamesAPI, chatsAPI, workspacesAPI } from '../lib/axios';
 import type { Game } from '../lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '../components/ui/dialog';
@@ -435,35 +436,14 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
               data-test="games-table"
             />
             
-            {/* Paginação */}
-            {pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 border-t border-[--border]">
-                <p className="text-sm text-[--muted-foreground]">
-                  Mostrando {((pagination.page - 1) * pagination.limit) + 1} a {Math.min(pagination.page * pagination.limit, pagination.total)} de {pagination.total} jogos
-                </p>
-                <div className="flex items-center gap-2">
-                  <BFButton
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.page === 1}
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                  >
-                    Anterior
-                  </BFButton>
-                  <span className="text-sm text-[--foreground] px-3">
-                    Página {pagination.page} de {pagination.totalPages}
-                  </span>
-                  <BFButton
-                    variant="outline"
-                    size="sm"
-                    disabled={pagination.page === pagination.totalPages}
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                  >
-                    Próxima
-                  </BFButton>
-                </div>
-              </div>
-            )}
+            <BFPagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.limit}
+              onPageChange={(page) => setPagination(prev => ({ ...prev, page }))}
+              data-test="games-pagination"
+            />
           </>
         )}
       </BFCard>

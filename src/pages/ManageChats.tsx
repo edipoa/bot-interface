@@ -1,14 +1,3 @@
-/**
- * ManageChats Page
- * 
- * Tela de criação e edição de chats vinculados a workspaces
- * Baseada nos comandos /bind e /schedule do bot de WhatsApp
- * 
- * Layout em 2 colunas:
- * - Esquerda: Formulário completo
- * - Direita: Preview das mensagens do bot
- */
-
 import React, { useState, useEffect } from 'react';
 import { BFInput } from '../components/BF-Input';
 import { BFButton } from '../components/BF-Button';
@@ -26,7 +15,6 @@ import {
   MessageSquare
 } from 'lucide-react';
 
-// Tipos
 interface ChatScheduleForm {
   // /bind fields
   workspaceSlug: string;

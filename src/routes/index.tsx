@@ -10,6 +10,7 @@ import { AdminDashboard } from '../pages/AdminDashboard';
 import { ManageGames } from '../pages/ManageGames';
 import { GameDetail } from '../pages/GameDetail';
 import { ManagePlayers } from '../pages/ManagePlayers';
+import { PlayerDetail } from '../pages/PlayerDetail';
 import { ManageDebts } from '../pages/ManageDebts';
 import { ManageWorkspaces } from '../pages/ManageWorkspaces';
 import { WorkspaceDetail } from '../pages/WorkspaceDetail';
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
       {
         path: 'players',
         element: <ManagePlayers />,
+      },
+      {
+        path: 'players/:playerId',
+        element: <PlayerDetail />,
       },
       {
         path: 'debts',

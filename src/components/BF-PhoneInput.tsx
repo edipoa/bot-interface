@@ -32,15 +32,11 @@ export const BFPhoneInput: React.FC<BFPhoneInputProps> = ({
 }) => {
   const [focused, setFocused] = useState(false);
 
-  // Formata o número de telefone brasileiro
   const formatPhoneNumber = (input: string): string => {
-    // Remove tudo que não é número
     const numbers = input.replace(/\D/g, '');
     
-    // Limita a 11 dígitos (DDD + número)
     const limited = numbers.slice(0, 11);
     
-    // Aplica formatação
     if (limited.length <= 2) {
       return limited;
     } else if (limited.length <= 7) {

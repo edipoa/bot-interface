@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BFSidebar, BFSidebarItem } from '../components/BF-Sidebar';
 import { BFIcons } from '../components/BF-Icons';
 import { useAuth } from '../components/ProtectedRoute';
@@ -10,6 +10,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ role }: AppLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [activeItem, setActiveItem] = useState('dashboard');
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
@@ -24,6 +25,32 @@ export default function AppLayout({ role }: AppLayoutProps) {
     setIsDarkMode(isDark);
     document.documentElement.classList.toggle('dark', isDark);
   }, []);
+
+  useEffect(() => {
+    const currentPath = location.pathname;
+    
+    if (currentPath.startsWith('/admin/games')) {
+      setActiveItem('games');
+    } else if (currentPath.startsWith('/admin/players')) {
+      setActiveItem('players');
+    } else if (currentPath.startsWith('/admin/debts')) {
+      setActiveItem('debts');
+    } else if (currentPath.startsWith('/admin/workspaces')) {
+      setActiveItem('workspaces');
+    } else if (currentPath.startsWith('/admin/chats')) {
+      setActiveItem('chats');
+    } else if (currentPath.startsWith('/admin/my-dashboard')) {
+      setActiveItem('my-dashboard');
+    } else if (currentPath.startsWith('/admin/my-profile')) {
+      setActiveItem('my-profile');
+    } else if (currentPath.startsWith('/admin/dashboard')) {
+      setActiveItem('dashboard');
+    } else if (currentPath.startsWith('/user/profile')) {
+      setActiveItem('profile');
+    } else if (currentPath.startsWith('/user/dashboard')) {
+      setActiveItem('dashboard');
+    }
+  }, [location.pathname]);
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -75,7 +102,6 @@ export default function AppLayout({ role }: AppLayoutProps) {
       path: '/admin/chats',
       roles: ['admin'],
     },
-    // Seção de Jogador
     {
       id: 'my-dashboard',
       label: 'Meu Painel',
@@ -123,6 +149,22 @@ export default function AppLayout({ role }: AppLayoutProps) {
 
 
 
+  const formatPhone = (phone: string): string => {
+    if (!phone) return '';
+    
+    const numbers = phone.replace(/\D/g, '');
+    
+    const localNumber = numbers.startsWith('55') ? numbers.slice(2) : numbers;
+    
+    if (localNumber.length === 11) {
+      return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 7)}-${localNumber.slice(7)}`;
+    } else if (localNumber.length === 10) {
+      return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 6)}-${localNumber.slice(6)}`;
+    }
+    
+    return phone;
+  };
+
   return (
     <div className="flex min-h-screen bg-[--background]">
       {/* Sidebar */}
@@ -132,7 +174,7 @@ export default function AppLayout({ role }: AppLayoutProps) {
         onItemClick={handleItemClick}
         userRole={role}
         userName={user?.name || 'Usuário'}
-        userEmail={user?.phone || ''}
+        userEmail={formatPhone(user?.phone || '')}
         isMobileOpen={isMobileMenuOpen}
         onMobileToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         onLogout={async () => {

@@ -1,13 +1,3 @@
-/**
- * Login Page
- * 
- * Tela de autenticação com telefone + OTP
- * - Etapa 1: Entrada de telefone
- * - Etapa 2: Verificação de código OTP
- * - Estados de loading e erro
- * - Responsivo e acessível
- */
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BFPhoneInput } from '../components/BF-PhoneInput';
@@ -23,32 +13,25 @@ type LoginStep = 'phone' | 'otp';
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  
-  // Estado do formulário
   const [step, setStep] = useState<LoginStep>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-
-  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [canResend, setCanResend] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(60);
 
-  // Verifica se já está autenticado
   useEffect(() => {
     const checkAuth = async () => {
       if (authAPI.isAuthenticated()) {
         try {
           const user = await authAPI.getMe();
-          // Se já está autenticado, redireciona
           if (user.role === 'admin') {
             navigate('/admin/dashboard', { replace: true });
           } else {
             navigate('/user/dashboard', { replace: true });
           }
         } catch (error) {
-          // Token inválido, limpa e continua no login
           console.error('Token validation failed:', error);
           tokenService.clearTokens();
           setIsCheckingAuth(false);
@@ -61,18 +44,15 @@ export const Login: React.FC = () => {
     checkAuth();
   }, [navigate]);
 
-  // Validação de telefone
   const isPhoneValid = (): boolean => {
     const numbers = phone.replace(/\D/g, '');
     return numbers.length === 10 || numbers.length === 11;
   };
 
-  // Validação de OTP
   const isOtpValid = (): boolean => {
     return otp.length === 6;
   };
 
-  // Simula envio de código
   const handleSendCode = async () => {
     setError('');
 
@@ -83,7 +63,14 @@ export const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      await authAPI.requestOTP(phone);
+      let numbers = phone.replace(/\D/g, '');
+      
+      if (numbers.length === 11 && numbers.charAt(2) === '9') {
+        numbers = numbers.slice(0, 2) + numbers.slice(3);
+      }
+      
+      const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
+      await authAPI.requestOTP(phoneWithCountryCode);
       setStep('otp');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
@@ -103,13 +90,19 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await authAPI.verifyOTP(phone, otp);
+      // Remove formatação
+      let numbers = phone.replace(/\D/g, '');
+      
+      if (numbers.length === 11 && numbers.charAt(2) === '9') {
+        numbers = numbers.slice(0, 2) + numbers.slice(3);
+      }
+      
+      const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
+      const response = await authAPI.verifyOTP(phoneWithCountryCode, otp);
       console.log('Verify OTP response:', response);
 
-      // Aguarda os tokens serem salvos
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Verifica se os tokens foram salvos
       const savedToken = localStorage.getItem('accessToken');
       console.log('Token saved in localStorage:', savedToken ? 'Yes' : 'No');
 
@@ -122,7 +115,6 @@ export const Login: React.FC = () => {
       const userRole = response.user?.role || 'user';
       console.log('User role:', userRole);
 
-      // Redireciona baseado no role do usuário
       if (userRole === 'admin') {
         navigate('/admin/dashboard');
       } else {
@@ -159,7 +151,14 @@ export const Login: React.FC = () => {
     setOtp('');
 
     try {
-      await authAPI.requestOTP(phone);
+      let numbers = phone.replace(/\D/g, '');
+      
+      if (numbers.length === 11 && numbers.charAt(2) === '9') {
+        numbers = numbers.slice(0, 2) + numbers.slice(3);
+      }
+      
+      const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
+      await authAPI.requestOTP(phoneWithCountryCode);
       setStep('otp');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
@@ -177,7 +176,6 @@ export const Login: React.FC = () => {
     setCanResend(false);
   };
 
-  // Mostra loading enquanto verifica autenticação
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[var(--bf-navy)] via-[var(--bf-navy-light)] to-[var(--bf-blue-primary)] flex items-center justify-center p-4">

@@ -14,11 +14,17 @@ export interface Player {
   email: string;
   phone: string;
   cpf: string;
+  nick?: string;
+  isGoalie?: boolean;
   status: 'active' | 'inactive' | 'suspended';
   balance: number;
   totalDebt: number;
+  role?: 'admin' | 'user';
   joinDate: string;
   lastActivity: string;
+  createdAt?: string;
+  updatedAt?: string;
+  profilePicture?: string;
 }
 
 export interface Game {
@@ -48,6 +54,30 @@ export interface Debt {
   createdAt: string;
   paidAt?: string;
   notes?: string;
+}
+
+export interface PlayerDebt {
+  _id: string;
+  workspaceId?: {
+    _id: string;
+    name: string;
+    slug: string;
+  };
+  gameId?: {
+    _id: string;
+    chatId: string;
+  };
+  userId: string;
+  type: string;
+  method: string;
+  category: string;
+  amountCents: number;
+  note: string;
+  status: 'pendente' | 'pago' | 'cancelado';
+  confirmedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  pix?: string;
 }
 
 export interface Transaction {

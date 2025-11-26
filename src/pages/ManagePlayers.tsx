@@ -1,29 +1,138 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BFCard } from '../components/BF-Card';
 import { BFButton } from '../components/BF-Button';
 import { BFInput } from '../components/BF-Input';
 import { BFBadge } from '../components/BF-Badge';
 import { BFTable } from '../components/BF-Table';
 import { BFIcons } from '../components/BF-Icons';
-import { mockPlayers } from '../lib/mockData';
+import { BFPagination } from '../components/BF-Pagination';
+import { EditPlayerModal } from '../components/EditPlayerModal';
+import { playersAPI } from '../lib/axios';
 import type { Player } from '../lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { toast } from 'sonner';
 
 export const ManagePlayers: React.FC = () => {
-  const [players] = useState<Player[]>(mockPlayers);
+  const navigate = useNavigate();
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-  const filteredPlayers = players.filter((player) => {
-    const matchesSearch =
-      player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      player.phone.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || player.status === filterStatus;
-    return matchesSearch && matchesStatus;
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
   });
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    withDebts: 0,
+    suspended: 0
+  });
+  const [playerToEdit, setPlayerToEdit] = useState<Player | null>(null);
+  const [playerToDelete, setPlayerToDelete] = useState<Player | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    fetchPlayers();
+  }, [debouncedSearchTerm, filterStatus, pagination.page]);
+
+  const fetchPlayers = async () => {
+    try {
+      setLoading(true);
+      const response = await playersAPI.getPlayers({
+        search: debouncedSearchTerm || undefined,
+        status: filterStatus as 'active' | 'inactive' | 'all',
+        page: pagination.page,
+        limit: pagination.limit,
+      });
+
+      setPlayers(response.players || []);
+      setPagination({
+        page: response.page || 1,
+        limit: response.limit || 10,
+        total: response.total || 0,
+        totalPages: response.totalPages || 0,
+      });
+
+      setStats({
+        total: response.total || 0,
+        active: response.activeCount || 0,
+        withDebts: response.withDebtsCount || 0,
+        suspended: response.inactiveCount || 0,
+      });
+    } catch (error: any) {
+      console.error('Error fetching players:', error);
+      toast.error(error.response?.data?.message || 'Erro ao carregar jogadores');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handleDeletePlayer = async () => {
+    if (!playerToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await playersAPI.deletePlayer(playerToDelete.id);
+      toast.success(`${playerToDelete.name} foi excluído com sucesso!`);
+      setPlayerToDelete(null);
+      fetchPlayers();
+    } catch (error: any) {
+      console.error('Error deleting player:', error);
+      toast.error(error.response?.data?.message || 'Erro ao excluir jogador');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSavePlayer = async (updatedData: Partial<Player>) => {
+    if (!playerToEdit) return;
+
+    await playersAPI.updatePlayer(playerToEdit.id, {
+      name: updatedData.name,
+      nick: updatedData.nick,
+      phone: updatedData.phone,
+      status: updatedData.status,
+      isGoalie: updatedData.isGoalie,
+    });
+    toast.success('Jogador atualizado com sucesso!');
+    setPlayerToEdit(null);
+    fetchPlayers();
+  };
+
+  const formatPhone = (phone: string): string => {
+    if (!phone) return '';
+
+    const numbers = phone.replace(/\D/g, '');
+    const localNumber = numbers.startsWith('55') ? numbers.slice(2) : numbers;
+
+    if (localNumber.length === 11) {
+      return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 7)}-${localNumber.slice(7)}`;
+    } else if (localNumber.length === 10) {
+      return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 6)}-${localNumber.slice(6)}`;
+    }
+
+    return phone;
+  };
 
   const getStatusBadge = (status: Player['status']) => {
     const statusMap = {
@@ -42,12 +151,20 @@ export const ManagePlayers: React.FC = () => {
       sortable: true,
       render: (_: any, row: Player) => (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[--primary]/10 flex items-center justify-center">
-            <span className="text-[--primary]">{row.name.charAt(0)}</span>
-          </div>
+          {row.profilePicture ? (
+            <img
+              src={row.profilePicture}
+              alt={row.name}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+              <span className="text-white font-semibold">{row.name.charAt(0).toUpperCase()}</span>
+            </div>
+          )}
           <div>
-            <p className="text-[--foreground]">{row.name}</p>
-            <p className="text-[--muted-foreground]">{row.email}</p>
+            <p className="text-[--foreground] font-medium">{row.name}</p>
+            <p className="text-[--muted-foreground] text-sm">{row.email}</p>
           </div>
         </div>
       ),
@@ -57,8 +174,8 @@ export const ManagePlayers: React.FC = () => {
       label: 'Contato',
       render: (value: string, row: Player) => (
         <div>
-          <p className="text-[--foreground]">{value}</p>
-          <p className="text-[--muted-foreground]">{row.cpf}</p>
+          <p className="text-[--foreground]">{formatPhone(value)}</p>
+          {row.cpf && <p className="text-[--muted-foreground] text-sm">{row.cpf}</p>}
         </div>
       ),
     },
@@ -130,7 +247,7 @@ export const ManagePlayers: React.FC = () => {
             </div>
             <div>
               <p className="text-white/80">Total</p>
-              <h3 className="text-white">{players.length}</h3>
+              <h3 className="text-white">{stats.total}</h3>
             </div>
           </div>
         </BFCard>
@@ -142,9 +259,7 @@ export const ManagePlayers: React.FC = () => {
             </div>
             <div>
               <p className="text-[--muted-foreground]">Ativos</p>
-              <h3 className="text-[--foreground]">
-                {players.filter((p) => p.status === 'active').length}
-              </h3>
+              <h3 className="text-[--foreground]">{stats.active}</h3>
             </div>
           </div>
         </BFCard>
@@ -156,9 +271,7 @@ export const ManagePlayers: React.FC = () => {
             </div>
             <div>
               <p className="text-[--muted-foreground]">Com Débitos</p>
-              <h3 className="text-[--foreground]">
-                {players.filter((p) => p.totalDebt > 0).length}
-              </h3>
+              <h3 className="text-[--foreground]">{stats.withDebts}</h3>
             </div>
           </div>
         </BFCard>
@@ -169,10 +282,8 @@ export const ManagePlayers: React.FC = () => {
               <BFIcons.XCircle size={20} color="var(--destructive)" />
             </div>
             <div>
-              <p className="text-[--muted-foreground]">Suspensos</p>
-              <h3 className="text-[--foreground]">
-                {players.filter((p) => p.status === 'suspended').length}
-              </h3>
+              <p className="text-[--muted-foreground]">Inativos</p>
+              <h3 className="text-[--foreground]">{stats.suspended}</h3>
             </div>
           </div>
         </BFCard>
@@ -200,54 +311,118 @@ export const ManagePlayers: React.FC = () => {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="inactive">Inativos</SelectItem>
-                <SelectItem value="suspended">Suspensos</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <BFButton
-            variant="outline"
-            icon={<BFIcons.Download size={20} />}
-            data-test="export-players"
-          >
-            Exportar
-          </BFButton>
         </div>
       </BFCard>
 
       {/* Table */}
       <BFCard variant="elevated" padding="none">
-        <BFTable
-          columns={columns}
-          data={filteredPlayers}
-          onRowClick={(player) => console.log('View player:', player)}
-          actions={(row: Player) => (
-            <div className="flex items-center gap-2">
-              <button
-                className="p-2 hover:bg-[--accent] rounded-md transition-colors"
-                title="Editar"
-                data-test={`edit-player-${row.id}`}
-              >
-                <BFIcons.Edit size={18} color="var(--primary)" />
-              </button>
-              <button
-                className="p-2 hover:bg-[--accent] rounded-md transition-colors"
-                title="Ver Débitos"
-                data-test={`view-debts-${row.id}`}
-              >
-                <BFIcons.DollarSign size={18} color="var(--warning)" />
-              </button>
-              <button
-                className="p-2 hover:bg-[--accent] rounded-md transition-colors"
-                title="Deletar"
-                data-test={`delete-player-${row.id}`}
-              >
-                <BFIcons.Trash2 size={18} color="var(--destructive)" />
-              </button>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+              <p className="mt-2 text-muted-foreground">Carregando jogadores...</p>
             </div>
-          )}
-          data-test="players-table"
-        />
+          </div>
+        ) : players.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <BFIcons.Users size={48} className="text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">Nenhum jogador encontrado</p>
+            {(debouncedSearchTerm || filterStatus !== 'all') && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Tente ajustar os filtros de busca
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <BFTable
+              columns={columns}
+              data={players}
+              onRowClick={(player) => navigate(`/admin/players/${player.id}`)}
+              actions={(row: Player) => (
+                <div className="flex items-center gap-2">
+                  <button
+                    className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer"
+                    title="Ver Detalhes"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/admin/players/${row.id}`);
+                    }}
+                    data-test={`view-player-${row.id}`}
+                  >
+                    <BFIcons.Eye size={18} color="var(--primary)" />
+                  </button>
+                  <button
+                    className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer"
+                    title="Editar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPlayerToEdit(row);
+                    }}
+                    data-test={`edit-player-${row.id}`}
+                  >
+                    <BFIcons.Edit size={18} color="var(--primary)" />
+                  </button>
+                  <button
+                    className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer"
+                    title="Deletar"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPlayerToDelete(row);
+                    }}
+                    data-test={`delete-player-${row.id}`}
+                  >
+                    <BFIcons.Trash2 size={18} color="var(--destructive)" />
+                  </button>
+                </div>
+              )}
+              data-test="players-table"
+            />
+
+            <BFPagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.total}
+              itemsPerPage={pagination.limit}
+              onPageChange={handlePageChange}
+              data-test="players-pagination"
+            />
+          </>
+        )}
       </BFCard>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!playerToDelete} onOpenChange={() => setPlayerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{playerToDelete?.name}</strong>?
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePlayer}
+              disabled={isDeleting}
+              className="bg-[--destructive] text-white hover:bg-[--destructive]/90"
+            >
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <EditPlayerModal
+        player={playerToEdit}
+        isOpen={!!playerToEdit}
+        onClose={() => setPlayerToEdit(null)}
+        onSave={handleSavePlayer}
+      />
     </div>
   );
 };
@@ -259,7 +434,7 @@ const CreatePlayerForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <BFInput label="Nome Completo" placeholder="João Silva" fullWidth required data-test="player-name" />
         <BFInput label="Email" type="email" placeholder="joao@email.com" fullWidth required data-test="player-email" />
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <BFInput label="Telefone" placeholder="(11) 98765-4321" fullWidth required data-test="player-phone" />
         <BFInput label="CPF" placeholder="123.456.789-00" fullWidth data-test="player-cpf" />

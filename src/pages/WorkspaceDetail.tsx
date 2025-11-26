@@ -28,11 +28,9 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({
   const [selectedChatForDebts, setSelectedChatForDebts] = useState<Chat | null>(null);
   const [selectedChatToOpen, setSelectedChatToOpen] = useState<Chat | null>(null);
 
-  // Get workspace data
   const workspace = mockWorkspaces.find((w) => w.id === workspaceId);
   const allChats = mockChats.filter((c) => c.workspaceId === workspaceId);
 
-  // Filtered chats
   const filteredChats = useMemo(() => {
     return allChats.filter((chat) => {
       const matchesSearch =
@@ -47,7 +45,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({
     });
   }, [allChats, searchTerm, statusFilter, typeFilter]);
 
-  // Stats
   const stats = {
     total: allChats.length,
     active: allChats.filter((c) => c.status === 'active').length,
@@ -66,7 +63,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({
   const confirmDelete = () => {
     if (chatToDelete) {
       console.log('Deletando chat:', chatToDelete.id);
-      // Aqui você implementaria a lógica real de deleção
       setChatToDelete(null);
     }
   };
