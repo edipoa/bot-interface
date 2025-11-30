@@ -16,6 +16,7 @@ interface DebtAPIResponse {
   playerName: string;
   gameId: string;
   gameName: string;
+  slot?: number;
   workspaceId: string;
   amount: number;
   amountCents: number;
@@ -101,12 +102,14 @@ export const ManageDebts: React.FC = () => {
         playerName: debt.playerName || 'Desconhecido',
         gameId: debt.gameId,
         gameName: debt.gameName,
+        slot: debt.slot,
         amount: debt.amountCents / 100, // Convert cents to reais
-        dueDate: debt.paidAt, // Using paidAt as dueDate for now
+        dueDate: debt.createdAt, // Using createdAt as dueDate for now
         status: mapStatusFromAPI(debt.status),
         createdAt: debt.createdAt,
         paidAt: debt.paidAt,
         notes: debt.notes,
+        category: debt.category,
       }));
 
       setDebts(mappedDebts);
@@ -129,16 +132,21 @@ export const ManageDebts: React.FC = () => {
     }
   };
 
-  const handlePayDebt = async () => {
+  const handleConfirmPayment = async () => {
     if (!selectedDebt) return;
 
     try {
       setPayingDebt(true);
-      await debtsAPI.markAsPaid(selectedDebt.id);
-      toast.success('💰 Pagamento registrado com sucesso!');
+
+      // CENTRALIZADO: Sempre usa o mesmo endpoint
+      // O backend detecta automaticamente se é débito de jogo ou geral
+      await debtsAPI.markAsPaid(selectedDebt.id, {
+        category: selectedDebt.category as any,
+      });
+
+      toast.success('✅ Pagamento registrado com sucesso!');
       setSelectedDebt(null);
-      setPaymentNotes('');
-      fetchDebts(); // Refresh the list
+      fetchDebts();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao registrar pagamento');
     } finally {
@@ -165,6 +173,7 @@ export const ManageDebts: React.FC = () => {
       icon: <BFIcons.AlertCircle size={20} color="var(--warning)" />,
       iconBgColor: 'var(--warning)/10',
       valueColor: 'var(--warning)',
+      variant: 'elevated',
     },
     {
       label: 'Recebido',
@@ -172,18 +181,21 @@ export const ManageDebts: React.FC = () => {
       icon: <BFIcons.CheckCircle size={20} color="var(--success)" />,
       iconBgColor: 'var(--success)/10',
       valueColor: 'var(--success)',
+      variant: 'elevated',
     },
     {
       label: 'Atrasados',
       value: stats.overdue,
       icon: <BFIcons.Clock size={20} color="var(--destructive)" />,
       iconBgColor: 'var(--destructive)/10',
+      variant: 'elevated',
     },
     {
       label: 'Este Mês',
       value: stats.debtsMonth,
       icon: <BFIcons.Activity size={20} color="var(--info)" />,
       iconBgColor: 'var(--info)/10',
+      variant: 'elevated',
     },
   ];
 
@@ -205,7 +217,11 @@ export const ManageDebts: React.FC = () => {
     {
       key: 'gameName',
       label: 'Jogo',
-      render: (value: string) => <span className="text-[--foreground]">{value}</span>,
+      render: (value: string) => (
+        <span className={`text-sm ${!value ? 'text-muted-foreground italic' : 'text-[--foreground]'}`}>
+          {value || 'Débito Avulso'}
+        </span>
+      ),
     },
     {
       key: 'amount',
@@ -361,7 +377,7 @@ export const ManageDebts: React.FC = () => {
                     <BFButton
                       variant="success"
                       icon={<BFIcons.CheckCircle size={20} />}
-                      onClick={handlePayDebt}
+                      onClick={handleConfirmPayment}
                       disabled={payingDebt}
                       data-test="confirm-payment"
                     >

@@ -48,12 +48,14 @@ export interface Debt {
   playerName: string;
   gameId: string;
   gameName: string;
+  slot?: number;
   amount: number;
   dueDate: string;
   status: 'pending' | 'paid' | 'overdue' | 'cancelled';
   createdAt: string;
   paidAt?: string;
   notes?: string;
+  category?: string;
 }
 
 export interface PlayerDebt {
@@ -125,6 +127,7 @@ export interface CommandParameter {
 export interface Workspace {
   id: string;
   name: string;
+  slug: string;
   description: string;
   platform: 'whatsapp' | 'telegram' | 'discord';
   status: 'active' | 'inactive' | 'maintenance';
@@ -132,7 +135,28 @@ export interface Workspace {
   activeChats: number;
   createdAt: string;
   lastSync: string;
+  updatedAt?: string;
+  timezone?: string;
+  settings?: {
+    maxPlayers?: number;
+    pricePerGame?: number;
+    pricePerGameCents?: number;
+    commandsEnabled?: string[];
+    pix?: string;
+    title?: string;
+  };
   apiKey?: string;
+  organizzeConfig?: {
+    email: string;
+    hasApiKey: boolean;
+    accountId: number;
+    categories: {
+      fieldPayment: number;
+      playerPayment: number;
+      playerDebt: number;
+      general: number;
+    };
+  };
 }
 
 export interface ChatSchedule {
@@ -146,15 +170,13 @@ export interface ChatSchedule {
 export interface Chat {
   id: string;
   workspaceId: string;
-  name: string;
-  chatId: string; 
+  name?: string;
+  chatId: string;
   label?: string;
   type: 'group' | 'private';
   status: 'active' | 'inactive' | 'archived';
   memberCount: number;
   schedule?: ChatSchedule;
-  lastMessage?: string;
-  lastMessageAt?: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
 }

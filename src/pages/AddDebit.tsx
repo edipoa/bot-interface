@@ -7,70 +7,126 @@ import { BFMoneyInput } from '../components/BF-MoneyInput';
 import { BFTextarea } from '../components/BF-Textarea';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
 import { BFWhatsAppPreview } from '../components/BF-WhatsAppPreview';
-import { 
-  ArrowLeft, 
-  Save, 
-  CheckCircle, 
-  Calendar,
+import {
+  ArrowLeft,
+  Save,
   DollarSign,
   FileText,
-  AlertCircle,
-  X
+  X,
+  User,
+  Trophy,
+  Search
 } from 'lucide-react';
+import { workspacesAPI, gamesAPI, debtsAPI, playersAPI } from '../lib/axios';
+
+// Tipos
+type DebitMode = 'game' | 'player';
 
 interface DebitForm {
+  mode: DebitMode;
   date: string;
-  workspaceSlug: string;
+  workspaceId: string;
+  playerId: string;
   amount: string;
   amountCents: number;
   note: string;
   category: string;
+  status: 'pendente' | 'confirmado';
 }
 
 interface GameInfo {
   id: string;
-  title: string;
+  name: string;
   time: string;
   date: string;
   found: boolean;
 }
 
 interface WorkspaceInfo {
+  id: string;
   name: string;
   slug: string;
-  found: boolean;
+}
+
+interface PlayerInfo {
+  id: string;
+  name: string;
+  phone: string;
 }
 
 interface AddDebitProps {
   onBack?: () => void;
 }
 
-const categoryOptions = [
+const gameCategoryOptions = [
   { value: 'general', label: 'Geral (general)' },
-  { value: 'aluguel', label: 'Aluguel campo' },
-  { value: 'taxas', label: 'Taxas' },
-  { value: 'outros', label: 'Outros' },
+  { value: 'field-payment', label: 'Pagamento Campo' },
+  { value: 'equipment', label: 'Equipamentos' },
+  { value: 'rental-goalkeeper', label: 'Goleiro de Aluguel' },
+];
+
+const playerCategoryOptions = [
+  { value: 'player-debt', label: 'Dívida Jogador' },
 ];
 
 export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
+  // Estado do formulário
   const [formData, setFormData] = useState<DebitForm>({
+    mode: 'game',
     date: '',
-    workspaceSlug: '',
+    workspaceId: '',
+    playerId: '',
     amount: '',
     amountCents: 0,
     note: '',
     category: 'general',
+    status: 'confirmado',
   });
 
+  // Estados de validação e dados
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null);
-  const [workspaceInfo, setWorkspaceInfo] = useState<WorkspaceInfo | null>(null);
+  const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
 
+  // Estados de busca de jogador
+  const [playerSearchTerm, setPlayerSearchTerm] = useState('');
+  const [playerSearchResults, setPlayerSearchResults] = useState<any[]>([]);
+  const [searchingPlayers, setSearchingPlayers] = useState(false);
+
+  // Estados de UI
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [checkingGame, setCheckingGame] = useState(false);
-  const [checkingWorkspace, setCheckingWorkspace] = useState(false);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
 
+  // Carregar workspaces ao montar
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        setLoadingWorkspaces(true);
+        const response = await workspacesAPI.getAllWorkspaces();
+
+        setWorkspaces(response.workspaces.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          slug: w.slug
+        })));
+
+        // Selecionar o primeiro se houver apenas um
+        if (response.length === 1) {
+          updateField('workspaceId', response[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar workspaces:', error);
+      } finally {
+        setLoadingWorkspaces(false);
+      }
+    };
+    fetchWorkspaces();
+  }, []);
+
+  // Atualiza campo
   const updateField = (field: keyof DebitForm, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => {
@@ -80,88 +136,138 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
     });
   };
 
-  useEffect(() => {
-    if (formData.workspaceSlug.length >= 3) {
-      setCheckingWorkspace(true);
-      
-      setTimeout(() => {
-        const workspaces: Record<string, string> = {
-          'arena': 'Arena Futsal',
-          'campo-do-viana': 'Campo do Viana',
-          'pelada-terça': 'Pelada de Terça',
-        };
+  // Troca de modo (Jogo <-> Jogador)
+  const handleModeChange = (mode: DebitMode) => {
+    setFormData(prev => ({
+      ...prev,
+      mode,
+      // Reseta campos específicos ao trocar de modo
+      date: mode === 'game' ? prev.date : '',
+      playerId: '',
+      category: mode === 'game' ? 'general' : 'player-debt',
+      status: mode === 'game' ? 'confirmado' : 'pendente'
+    }));
+    setErrors({});
+    setGameInfo(null);
+    setPlayerInfo(null);
+    setPlayerSearchTerm('');
+    setPlayerSearchResults([]);
+  };
 
-        const name = workspaces[formData.workspaceSlug.toLowerCase()];
-        
-        if (name) {
-          setWorkspaceInfo({
-            name,
-            slug: formData.workspaceSlug,
-            found: true,
-          });
-          setErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors.workspaceSlug;
-            return newErrors;
-          });
-        } else {
-          setWorkspaceInfo({
-            name: '',
-            slug: formData.workspaceSlug,
-            found: false,
-          });
-          setErrors((prev) => ({
-            ...prev,
-            workspaceSlug: `Workspace "${formData.workspaceSlug}" não encontrado.`,
-          }));
-        }
-        setCheckingWorkspace(false);
-      }, 600);
-    } else {
-      setWorkspaceInfo(null);
-      setGameInfo(null); // Reset game quando workspace muda
+
+  // Busca Jogo (apenas modo 'game')
+  useEffect(() => {
+    // Executa busca se for modo game OU (modo player com data preenchida)
+    if (!formData.workspaceId) return;
+
+    // No modo player, só busca se tiver data
+    if (formData.mode === 'player' && !formData.date) {
+      setGameInfo(null);
+      return;
     }
-  }, [formData.workspaceSlug]);
 
-  useEffect(() => {
-    const isValidDate = /^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])$/.test(formData.date);
-    
-    if (isValidDate && workspaceInfo?.found) {
+    // Valida formato yyyy-mm-dd
+    const isValidDate = /^\d{4}-\d{2}-\d{2}$/.test(formData.date);
+
+    if (isValidDate) {
       setCheckingGame(true);
-      
-      setTimeout(() => {
-        if (Math.random() > 0.2) {
-          setGameInfo({
-            id: '123',
-            title: '⚽ CAMPO VIANA',
-            time: '20:30',
-            date: formData.date,
-            found: true,
+
+      const checkGame = async () => {
+        try {
+          const response = await gamesAPI.getAllGames(1, 100);
+          const games = response.data || [];
+
+          const game = games.find((g: any) => {
+            // Normaliza data do jogo para YYYY-MM-DD
+            const gameDateStr = g.date.split('T')[0];
+
+            // Verifica data (comparação de string direta)
+            const matchDate = gameDateStr === formData.date;
+
+            // Verifica workspace
+            const gameWorkspaceId = g.workspaceId || g.workspace?.id;
+            const matchWorkspace = gameWorkspaceId === formData.workspaceId;
+
+            return matchDate && matchWorkspace;
           });
-          setErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors.date;
-            return newErrors;
-          });
-        } else {
-          setGameInfo({
-            id: '',
-            title: '',
-            time: '',
-            date: formData.date,
-            found: false,
-          });
+
+          if (game) {
+            setGameInfo({
+              id: game.id,
+              name: game.name,
+              time: game.time,
+              date: formData.date,
+              found: true,
+            });
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors.date;
+              return newErrors;
+            });
+          } else {
+            setGameInfo({
+              id: '',
+              name: '',
+              time: '',
+              date: formData.date,
+              found: false,
+            });
+            setErrors((prev) => ({
+              ...prev,
+              date: `Jogo não encontrado em ${formData.date}.`,
+            }));
+          }
+        } catch (error) {
+          console.error('Erro ao buscar jogo:', error);
           setErrors((prev) => ({
             ...prev,
-            date: `Jogo não encontrado em ${formData.date} para ${workspaceInfo.name}.`,
+            date: 'Erro ao buscar jogo.',
           }));
+        } finally {
+          setCheckingGame(false);
         }
-        setCheckingGame(false);
-      }, 800);
+      };
+
+      const timeoutId = setTimeout(checkGame, 800);
+      return () => clearTimeout(timeoutId);
     } else {
       setGameInfo(null);
     }
-  }, [formData.date, workspaceInfo]);
+  }, [formData.date, formData.workspaceId, formData.mode]);
+
+  // Busca Jogador (apenas modo 'player')
+  useEffect(() => {
+    if (formData.mode !== 'player') return;
+
+    const timer = setTimeout(async () => {
+      if (playerSearchTerm.length >= 2) {
+        setSearchingPlayers(true);
+        try {
+          const response = await playersAPI.searchPlayers(playerSearchTerm);
+          setPlayerSearchResults(response.players || []);
+        } catch (error) {
+          console.error('Erro ao buscar jogadores:', error);
+        } finally {
+          setSearchingPlayers(false);
+        }
+      } else {
+        setPlayerSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [playerSearchTerm, formData.mode]);
+
+  const handlePlayerSelect = (player: any) => {
+    setPlayerInfo({
+      id: player.id,
+      name: player.name,
+      phone: player.phone
+    });
+    updateField('playerId', player.id);
+    setPlayerSearchTerm('');
+    setPlayerSearchResults([]);
+  };
 
   const handleAmountChange = (value: string, cents: number) => {
     updateField('amount', value);
@@ -171,18 +277,30 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.date) {
-      newErrors.date = 'Data obrigatória. Use dd/mm. Ex.: 13/11';
-    } else if (!/^([0-2][0-9]|3[0-1])\/(0[1-9]|1[0-2])$/.test(formData.date)) {
-      newErrors.date = 'Data inválida. Use dd/mm. Ex.: 13/11';
-    } else if (!gameInfo?.found) {
-      newErrors.date = 'Jogo não encontrado para esta data';
+    if (!formData.workspaceId) {
+      newErrors.workspaceId = 'Workspace é obrigatório';
     }
 
-    if (!formData.workspaceSlug) {
-      newErrors.workspaceSlug = 'Workspace é obrigatório';
-    } else if (!workspaceInfo?.found) {
-      newErrors.workspaceSlug = 'Workspace não encontrado';
+    if (formData.mode === 'game') {
+      if (!formData.date) {
+        newErrors.date = 'Data obrigatória';
+      } else if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) {
+        newErrors.date = 'Data inválida.';
+      } else if (!gameInfo?.found) {
+        newErrors.date = 'Jogo não encontrado para esta data';
+      }
+    } else { // mode === 'player'
+      if (!formData.playerId) {
+        newErrors.playerSearch = 'Selecione um jogador';
+      }
+      // Data é opcional, mas se fornecida, deve ser válida e ter jogo
+      if (formData.date) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.date)) {
+          newErrors.date = 'Data inválida.';
+        } else if (!gameInfo?.found) {
+          newErrors.date = 'Jogo não encontrado para esta data';
+        }
+      }
     }
 
     if (!formData.amount || formData.amountCents <= 0) {
@@ -194,133 +312,104 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
   };
 
   const handleSave = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     setSuccess(false);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      await debtsAPI.createDebt({
+        playerId: formData.mode === 'player' ? formData.playerId : '',
+        workspaceId: formData.workspaceId,
+        gameId: gameInfo?.found ? gameInfo.id : undefined,
+        amount: formData.amountCents / 100,
+        notes: getFinalNote(),
+        category: formData.category as any,
+        status: formData.status,
+      });
 
-    setLoading(false);
-    setSuccess(true);
+      setLoading(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 5000);
 
-    setTimeout(() => setSuccess(false), 5000);
+      // Reset parcial
+      setFormData(prev => ({
+        ...prev,
+        amount: '',
+        amountCents: 0,
+        note: '',
+      }));
+
+      if (formData.mode === 'player') {
+        setPlayerInfo(null);
+        updateField('playerId', '');
+      }
+    } catch (error) {
+      console.error('Erro ao criar débito:', error);
+      setLoading(false);
+    }
   };
 
   const formatMoney = (cents: number): string => {
     return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
   };
 
+  const formatPhone = (phone: string): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
+    }
+    return phone;
+  };
+
   const getFinalNote = (): string => {
-    const baseNote = formData.note.trim() || 'Pagamento ao campo';
-    return `${baseNote} do jogo ${formData.date} (${gameInfo?.title || 'Jogo'})`;
-  };
+    const baseNote = formData.note.trim() || (formData.mode === 'game' ? 'Pagamento ao campo' : 'Dívida avulsa');
 
-  const renderSummaryPreview = () => {
-    const hasAllData = gameInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
-
-    if (!hasAllData) {
-      return (
-        <div className="p-6 bg-muted rounded-xl border-2 border-border">
-          <p className="text-sm text-muted-foreground text-center">
-            Preencha data, workspace e valor para ver o preview
-          </p>
-        </div>
-      );
+    // Se tem jogo associado (seja modo game ou player)
+    if (gameInfo?.found) {
+      const gameName = gameInfo.name || 'Jogo';
+      return `${baseNote} - Jogo ${formData.date} (${gameName})`;
     }
-
-    return (
-      <div className="p-6 bg-card rounded-xl border-2 border-[var(--bf-blue-primary)] shadow-md">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-          <h3 className="text-lg text-foreground">Resumo do débito</h3>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs text-muted-foreground">Workspace</p>
-            <p className="text-sm text-foreground">
-              {workspaceInfo?.name} <span className="text-muted-foreground">({workspaceInfo?.slug})</span>
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Data do jogo</p>
-            <p className="text-sm text-foreground">{formData.date}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Jogo selecionado</p>
-            <p className="text-sm text-foreground">{gameInfo?.title}</p>
-            <p className="text-xs text-muted-foreground">Horário: {gameInfo?.time}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Valor</p>
-            <p className="text-2xl text-[var(--bf-blue-primary)]">{formatMoney(formData.amountCents)}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Nota final</p>
-            <p className="text-sm text-foreground italic">"{getFinalNote()}"</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Categoria</p>
-            <p className="text-sm text-foreground">
-              {categoryOptions.find(opt => opt.value === formData.category)?.label}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return baseNote;
   };
 
-  const renderBotSuccessPreview = () => {
-    const hasAllData = gameInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
-
-    if (!hasAllData) {
-      return null;
-    }
-
-    const content = `✅ Registrado débito de ${formatMoney(formData.amountCents)} (${formData.date}) – ${formData.note || 'Pagamento ao campo'}.`;
-
-    return (
-      <BFWhatsAppPreview
-        title="Simulação de mensagem (sucesso)"
-        content={content}
-        variant="success"
-        icon={<CheckCircle className="w-5 h-5" />}
-      />
-    );
+  const getSelectedWorkspaceName = () => {
+    return workspaces.find(w => w.id === formData.workspaceId)?.name || '';
   };
 
-  const renderBotErrorsPreview = () => {
-    const errorMessages = [
-      '❌ Data obrigatória. Use dd/mm. Ex.: 13/11',
-      '❌ Valor inválido. Exemplos: 150,00 | 150.00 | R$150 | 15000c',
-      `❌ Workspace ${formData.workspaceSlug || 'arena'} não encontrado.`,
-      `❌ Jogo não encontrado em ${formData.date || '13/11'} para ${workspaceInfo?.name || 'Arena X'}.`,
-    ];
+  // Componente de Seleção de Modo
+  const ModeSelector = () => (
+    <div className="grid grid-cols-2 gap-4 mb-8">
+      <button
+        onClick={() => handleModeChange('game')}
+        className={`
+          flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all
+          ${formData.mode === 'game'
+            ? 'border-[var(--bf-blue-primary)] bg-blue-50/10 text-[var(--bf-blue-primary)]'
+            : 'border-border hover:border-muted-foreground/50 text-muted-foreground'}
+        `}
+      >
+        <Trophy className="w-8 h-8 mb-3" />
+        <span className="font-medium">Débito de Jogo</span>
+        <span className="text-xs mt-1 opacity-70">Associado a um jogo específico</span>
+      </button>
 
-    return (
-      <div className="p-4 bg-red-50 rounded-xl border-2 border-red-200">
-        <h4 className="text-sm text-foreground mb-2 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-destructive" />
-          Possíveis mensagens de erro
-        </h4>
-        <div className="space-y-1">
-          {errorMessages.map((msg, idx) => (
-            <p key={idx} className="text-xs text-destructive font-mono">
-              {msg}
-            </p>
-          ))}
-        </div>
-      </div>
-    );
-  };
+      <button
+        onClick={() => handleModeChange('player')}
+        className={`
+          flex flex-col items-center justify-center p-6 rounded-xl border-2 transition-all
+          ${formData.mode === 'player'
+            ? 'border-[var(--bf-blue-primary)] bg-blue-50/10 text-[var(--bf-blue-primary)]'
+            : 'border-border hover:border-muted-foreground/50 text-muted-foreground'}
+        `}
+      >
+        <User className="w-8 h-8 mb-3" />
+        <span className="font-medium">Débito de Jogador</span>
+        <span className="text-xs mt-1 opacity-70">Direto para um jogador</span>
+      </button>
+    </div>
+  );
 
   return (
     <div className="h-full bg-background" data-test="add-debit-page">
@@ -329,134 +418,209 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             {onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                data-test="back-button"
-              >
+              <button onClick={onBack} className="p-2 hover:bg-accent rounded-lg">
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
             <div>
-              <h1 className="text-2xl text-foreground mb-1">
-                Registrar débito do jogo
-              </h1>
+              <h1 className="text-2xl text-foreground mb-1">Registrar Débito</h1>
               <p className="text-sm text-muted-foreground">
-                Lance um débito financeiro associado a um jogo específico em um workspace
+                Lance um débito financeiro para um jogo ou jogador
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mensagem de sucesso */}
       {success && (
         <div className="max-w-7xl mx-auto px-6 pt-6">
           <BFAlertMessage
             variant="success"
             title="Débito registrado!"
-            message={`Registrado débito de ${formatMoney(formData.amountCents)} (${formData.date}) – ${formData.note || 'Pagamento ao campo'}.`}
+            message={`Débito de ${formatMoney(formData.amountCents)} registrado com sucesso.`}
             onClose={() => setSuccess(false)}
           />
         </div>
       )}
 
-      {/* Layout em 2 colunas */}
       <div className="max-w-7xl mx-auto px-6 py-6">
+        <ModeSelector />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* COLUNA ESQUERDA: Formulário */}
           <div className="space-y-6">
-            {/* Seção: Data e jogo */}
+
+            {/* Card Principal (Jogo ou Jogador) */}
             <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Data e jogo</h2>
+                {formData.mode === 'game' ? (
+                  <Trophy className="w-5 h-5 text-[var(--bf-blue-primary)]" />
+                ) : (
+                  <User className="w-5 h-5 text-[var(--bf-blue-primary)]" />
+                )}
+                <h2 className="text-lg text-foreground">
+                  {formData.mode === 'game' ? 'Informações do Jogo' : 'Informações do Jogador'}
+                </h2>
               </div>
 
-              {/* Data */}
-              <BFDateInput
-                label="Data do jogo (dd/mm)"
-                value={formData.date}
-                onChange={(value) => updateField('date', value)}
-                error={errors.date}
-                disabled={loading}
-                placeholder="13/11"
-                helperText="Data do jogo para associar o débito"
-                data-test="date-input"
-              />
-
-              {/* Workspace Slug */}
+              {/* Workspace (Comum aos dois) */}
               <div>
-                <BFInput
-                  label="Workspace (slug)"
-                  value={formData.workspaceSlug}
-                  onChange={(value) => updateField('workspaceSlug', value)}
-                  error={errors.workspaceSlug}
-                  disabled={loading}
-                  placeholder="arena, campo-do-viana, pelada-terça"
-                  helperText="Digite o identificador do workspace"
-                  data-test="workspace-slug-input"
+                <BFSelect
+                  label="Workspace"
+                  value={formData.workspaceId}
+                  onChange={(value) => updateField('workspaceId', value)}
+                  options={workspaces.map(w => ({ value: w.id, label: w.name }))}
+                  disabled={loading || loadingWorkspaces}
+                  placeholder="Selecione o workspace"
+                  error={errors.workspaceId}
                 />
-
-                {/* Status do workspace */}
-                {checkingWorkspace && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
-                    Buscando workspace...
-                  </div>
-                )}
-
-                {workspaceInfo?.found && (
-                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[var(--bf-blue-primary)]" />
-                    <span className="text-sm text-foreground">{workspaceInfo.name}</span>
-                  </div>
-                )}
               </div>
 
-              {/* Jogo encontrado */}
-              {checkingGame && (
-                <div className="flex items-center gap-2 p-3 bg-muted border-2 border-border rounded-lg">
-                  <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-muted-foreground">Buscando jogo...</span>
-                </div>
-              )}
-
-              {gameInfo?.found && (
-                <div className="p-4 bg-green-50 border-2 border-green-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-5 h-5 text-[var(--bf-green-primary)] flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground mb-1">Jogo encontrado</p>
-                      <p className="text-sm text-foreground">{gameInfo.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Data: {gameInfo.date} • Horário: {gameInfo.time}
-                      </p>
+              {/* Campos Específicos */}
+              {formData.mode === 'game' ? (
+                <>
+                  <BFDateInput
+                    label="Data do jogo"
+                    value={formData.date}
+                    onChange={(value) => updateField('date', value)}
+                    error={errors.date}
+                    disabled={loading || !formData.workspaceId}
+                    placeholder="dd/mm"
+                  />
+                  {checkingGame && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
+                      Buscando jogo...
                     </div>
-                  </div>
-                </div>
+                  )}
+                  {gameInfo?.found && (
+                    <div className="p-3 bg-green-50/50 border border-green-200 rounded-lg text-sm">
+                      <p className="font-medium text-green-800">{gameInfo.name}</p>
+                      <p className="text-green-600">{gameInfo.time}</p>
+                    </div>
+                  )}
+                  {gameInfo && !gameInfo.found && (
+                    <div className="p-3 bg-red-50 border-2 border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <X className="w-4 h-4 text-destructive" />
+                        <p className="text-sm text-destructive">
+                          Jogo não encontrado em {formData.date}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {!playerInfo ? (
+                    <div className="relative">
+                      <BFInput
+                        label="Buscar Jogador"
+                        value={playerSearchTerm}
+                        onChange={(value) => setPlayerSearchTerm(value)}
+                        placeholder="Nome ou telefone..."
+                        icon={<Search className="w-4 h-4" />}
+                        error={errors.playerSearch}
+                      />
+
+                      {/* Resultados da busca */}
+                      {(searchingPlayers || playerSearchResults.length > 0) && (
+                        <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                          {searchingPlayers ? (
+                            <div className="p-4 text-center text-muted-foreground">
+                              <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
+                              Buscando...
+                            </div>
+                          ) : (
+                            playerSearchResults.map((player) => (
+                              <button
+                                key={player.id}
+                                onClick={() => handlePlayerSelect(player)}
+                                className="w-full p-3 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
+                              >
+                                <p className="font-medium text-foreground">{player.name}</p>
+                                {player.phone && (
+                                  <p className="text-xs text-muted-foreground">{formatPhone(player.phone)}</p>
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+
+                      {playerSearchTerm.length >= 2 && !searchingPlayers && playerSearchResults.length === 0 && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Nenhum jogador encontrado.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-accent/50 rounded-lg border border-border">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{playerInfo.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatPhone(playerInfo.phone)}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setPlayerInfo(null);
+                            updateField('playerId', '');
+                          }}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Alterar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {gameInfo && !gameInfo.found && (
-                <div className="p-3 bg-red-50 border-2 border-red-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <X className="w-4 h-4 text-destructive" />
-                    <p className="text-sm text-destructive">
-                      Jogo não encontrado em {formData.date} para {workspaceInfo?.name || 'este workspace'}
-                    </p>
-                  </div>
-                </div>
+              {/* Campo de Data (opcional no modo player) */}
+              {formData.mode === 'player' && playerInfo && (
+                <>
+                  <BFDateInput
+                    label="Data do Jogo (Opcional)"
+                    value={formData.date}
+                    onChange={(value) => updateField('date', value)}
+                    error={errors.date}
+                    helperText="Associe este débito a um jogo específico (opcional)"
+                  />
+
+                  {/* Feedback de busca de jogo */}
+                  {checkingGame && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
+                      Buscando jogo...
+                    </div>
+                  )}
+                  {gameInfo?.found && (
+                    <div className="mt-2 p-3 bg-green-50/50 border border-green-200 rounded-lg text-sm">
+                      <p className="font-medium text-green-800">{gameInfo.name}</p>
+                      <p className="text-green-600">{gameInfo.time}</p>
+                    </div>
+                  )}
+                  {gameInfo && !gameInfo.found && formData.date && (
+                    <div className="mt-2 p-3 bg-red-50 border-2 border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <X className="w-4 h-4 text-destructive" />
+                        <p className="text-sm text-destructive">
+                          Jogo não encontrado em {formData.date}.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* Seção: Valor do débito */}
+            {/* Card Valores */}
             <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Valor do débito</h2>
+                <h2 className="text-lg text-foreground">Valores e Detalhes</h2>
               </div>
 
-              {/* Amount */}
               <BFMoneyInput
                 label="Valor"
                 value={formData.amount}
@@ -466,74 +630,47 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
                 placeholder="150,00"
                 helperText="Aceita: 150,00 | 150.00 | R$150 | 15000c"
                 showCentsPreview
-                data-test="amount-input"
               />
-            </div>
 
-            {/* Seção: Descrição do débito */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Descrição do débito</h2>
-              </div>
-
-              {/* Note */}
               <BFTextarea
-                label="Nota"
+                label="Nota / Descrição"
                 value={formData.note}
                 onChange={(value) => updateField('note', value)}
-                error={errors.note}
-                disabled={loading}
-                placeholder="goleiro aluguel, aluguel campo, etc."
-                rows={3}
-                helperText='Se vazio, usará "Pagamento ao campo"'
-                data-test="note-textarea"
+                rows={2}
+                placeholder={formData.mode === 'game' ? "Ex: Pagamento campo" : "Ex: Dívida de colete"}
+                helperText={formData.mode === 'game' ? 'Se vazio, usará "Pagamento ao campo"' : 'Se vazio, usará "Dívida avulsa"'}
               />
 
-              {/* Preview da nota final */}
-              {formData.date && gameInfo?.found && (
-                <div className="p-3 bg-muted rounded-lg border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Nota final que será gravada:</p>
-                  <p className="text-sm text-foreground italic">"{getFinalNote()}"</p>
-                </div>
-              )}
-
-              {/* Category */}
               <BFSelect
                 label="Categoria"
                 value={formData.category}
                 onChange={(value) => updateField('category', value)}
-                options={categoryOptions}
-                disabled={loading}
-                helperText="Categoria para organização dos débitos"
-                data-test="category-select"
+                options={formData.mode === 'game' ? gameCategoryOptions : playerCategoryOptions}
+                disabled={loading || formData.mode === 'player'}
+              />
+
+              <BFSelect
+                label="Status Inicial"
+                value={formData.status}
+                onChange={(value) => updateField('status', value)}
+                options={[
+                  { value: 'pendente', label: 'Pendente' },
+                  { value: 'confirmado', label: 'Confirmado (Pago)' },
+                ]}
+                disabled={loading || formData.mode === 'game'}
               />
             </div>
 
-            {/* Ações */}
-            <div className="flex items-center gap-3">
-              <BFButton
-                variant="primary"
-                onClick={handleSave}
-                disabled={loading || !gameInfo?.found || !workspaceInfo?.found}
-                loading={loading}
-                icon={<Save className="w-4 h-4" />}
-                data-test="save-button"
-              >
-                {loading ? 'Registrando...' : 'Registrar débito'}
-              </BFButton>
-
-              {onBack && (
-                <BFButton
-                  variant="outline"
-                  onClick={onBack}
-                  disabled={loading}
-                  data-test="cancel-button"
-                >
-                  Cancelar
-                </BFButton>
-              )}
-            </div>
+            <BFButton
+              variant="primary"
+              onClick={handleSave}
+              disabled={loading || !formData.workspaceId || (formData.mode === 'game' && !gameInfo?.found) || (formData.mode === 'player' && !playerInfo)}
+              loading={loading}
+              icon={<Save className="w-4 h-4" />}
+              className="w-full"
+            >
+              Registrar Débito
+            </BFButton>
           </div>
 
           {/* COLUNA DIREITA: Preview */}
@@ -541,27 +678,55 @@ export const AddDebit: React.FC<AddDebitProps> = ({ onBack }) => {
             <div className="bg-card rounded-xl border-2 border-border p-6">
               <h2 className="text-lg text-foreground mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                Preview da operação
+                Resumo
               </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Visualize os detalhes antes de confirmar
-              </p>
 
-              <div className="space-y-4">
-                {renderSummaryPreview()}
-                {renderBotSuccessPreview()}
-                {renderBotErrorsPreview()}
-              </div>
+              {(!formData.workspaceId || (formData.mode === 'game' && !gameInfo?.found) || (formData.mode === 'player' && !playerInfo)) ? (
+                <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                  <p>Preencha as informações principais para visualizar o resumo.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Workspace</span>
+                      <span className="text-sm font-medium">{getSelectedWorkspaceName()}</span>
+                    </div>
 
-              {/* Info adicional */}
-              <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-                <h4 className="text-sm text-foreground mb-2">💡 Dica</h4>
-                <p className="text-xs text-muted-foreground">
-                  O débito será associado automaticamente ao jogo da data especificada.
-                  Certifique-se de que a data e o workspace estão corretos antes de confirmar.
-                  A nota será concatenada com a data e o título do jogo.
-                </p>
-              </div>
+                    {formData.mode === 'game' ? (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Jogo</span>
+                        <span className="text-sm font-medium text-right">
+                          {gameInfo?.name} - {formData.date}
+                          <span className="text-xs opacity-70">{gameInfo?.date} - {gameInfo?.time}</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Jogador</span>
+                        <span className="text-sm font-medium">{playerInfo?.name}</span>
+                      </div>
+                    )}
+
+                    <div className="border-t border-border my-2 pt-2 flex justify-between items-center">
+                      <span className="text-sm font-bold">Total</span>
+                      <span className="text-xl font-bold text-[var(--bf-blue-primary)]">
+                        {formatMoney(formData.amountCents)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground italic">
+                    Nota final: "{getFinalNote()}"
+                  </div>
+
+                  <BFWhatsAppPreview
+                    title="Simulação (Bot)"
+                    content={`✅ Débito registrado: ${formatMoney(formData.amountCents)}\n${getFinalNote()}`}
+                    variant="success"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

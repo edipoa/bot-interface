@@ -28,7 +28,7 @@ export default function AppLayout({ role }: AppLayoutProps) {
 
   useEffect(() => {
     const currentPath = location.pathname;
-    
+
     if (currentPath.startsWith('/admin/games')) {
       setActiveItem('games');
     } else if (currentPath.startsWith('/admin/players')) {
@@ -37,8 +37,8 @@ export default function AppLayout({ role }: AppLayoutProps) {
       setActiveItem('debts');
     } else if (currentPath.startsWith('/admin/workspaces')) {
       setActiveItem('workspaces');
-    } else if (currentPath.startsWith('/admin/chats')) {
-      setActiveItem('chats');
+      // } else if (currentPath.startsWith('/admin/chats')) {
+      // setActiveItem('chats');
     } else if (currentPath.startsWith('/admin/my-dashboard')) {
       setActiveItem('my-dashboard');
     } else if (currentPath.startsWith('/admin/my-profile')) {
@@ -95,11 +95,27 @@ export default function AppLayout({ role }: AppLayoutProps) {
       path: '/admin/workspaces',
       roles: ['admin'],
     },
+    // {
+    //   id: 'chats',
+    //   label: 'Chats',
+    //   icon: 'MessageCircle',
+    //   path: '/admin/chats',
+    //   roles: ['admin'],
+    // },
     {
-      id: 'chats',
-      label: 'Chats',
-      icon: 'MessageCircle',
-      path: '/admin/chats',
+      id: 'add-credit',
+      label: 'Adicionar Crédito',
+      icon: 'PlusCircle',
+      path: '/admin/add-credit',
+      roles: ['admin'],
+      separator: true,
+      sectionLabel: 'Ações Rápidas',
+    },
+    {
+      id: 'add-debit',
+      label: 'Adicionar Débito',
+      icon: 'MinusCircle',
+      path: '/admin/add-debit',
       roles: ['admin'],
     },
     {
@@ -151,17 +167,17 @@ export default function AppLayout({ role }: AppLayoutProps) {
 
   const formatPhone = (phone: string): string => {
     if (!phone) return '';
-    
+
     const numbers = phone.replace(/\D/g, '');
-    
+
     const localNumber = numbers.startsWith('55') ? numbers.slice(2) : numbers;
-    
+
     if (localNumber.length === 11) {
       return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 7)}-${localNumber.slice(7)}`;
     } else if (localNumber.length === 10) {
       return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 6)}-${localNumber.slice(6)}`;
     }
-    
+
     return phone;
   };
 
@@ -182,7 +198,7 @@ export default function AppLayout({ role }: AppLayoutProps) {
           await authAPI.logout();
         }}
       />
-      
+
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
@@ -198,7 +214,7 @@ export default function AppLayout({ role }: AppLayoutProps) {
               >
                 <BFIcons.Menu size={20} className="text-[--foreground]" />
               </button>
-              
+
               <div className="hidden sm:block">
                 <h2 className="text-base font-semibold text-[--foreground]">Bot Fut</h2>
                 <p className="text-xs text-[--muted-foreground] leading-none">
@@ -206,19 +222,19 @@ export default function AppLayout({ role }: AppLayoutProps) {
                 </p>
               </div>
             </div>
-            
+
             {/* Right Side - Actions */}
             <div className="flex items-center gap-2">
               {/* Notifications Button */}
               <button
                 className="relative p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group cursor-pointer"
-                onClick={() => {}}
+                onClick={() => { }}
                 aria-label="Notificações"
               >
                 <BFIcons.Bell size={20} className="text-[--muted-foreground] group-hover:text-[--foreground]" />
                 <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
               </button>
-              
+
               {/* Settings Dropdown */}
               <div className="relative">
                 <button
@@ -232,8 +248,8 @@ export default function AppLayout({ role }: AppLayoutProps) {
                 {/* Settings Dropdown Menu */}
                 {showSettingsMenu && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-40" 
+                    <div
+                      className="fixed inset-0 z-40"
                       onClick={() => setShowSettingsMenu(false)}
                     />
                     <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50">
@@ -252,14 +268,12 @@ export default function AppLayout({ role }: AppLayoutProps) {
                           </div>
                           <button
                             onClick={toggleTheme}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[--primary] focus:ring-offset-2 ${
-                              isDarkMode ? 'bg-[--primary]' : 'bg-gray-200'
-                            }`}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[--primary] focus:ring-offset-2 ${isDarkMode ? 'bg-[--primary]' : 'bg-gray-200'
+                              }`}
                           >
                             <span
-                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                isDarkMode ? 'translate-x-6' : 'translate-x-1'
-                              }`}
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-6' : 'translate-x-1'
+                                }`}
                             />
                           </button>
                         </div>

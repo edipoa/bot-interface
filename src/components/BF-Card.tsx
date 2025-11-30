@@ -19,30 +19,45 @@ export const BFCard: React.FC<BFCardProps> = ({
   'data-test': dataTest,
   onClick,
 }) => {
-  const variantClasses = {
-    default: 'bg-[var(--card)] border border-[var(--border)]',
-    outlined: 'bg-transparent border-2 border-[var(--border)]',
-    elevated: 'bg-[var(--card)] shadow-lg',
-    stat: 'bg-gradient-to-br from-[#00D66F] to-[#00A854] text-white border-0',
+  const getVariantClasses = (variant: string) => {
+    switch (variant) {
+      case 'default':
+        return 'bg-white dark:bg-[#1A2B42] border border-gray-200 dark:border-[#293548]';
+      case 'outlined':
+        return 'bg-transparent border-2 border-gray-200 dark:border-[#293548]';
+      case 'elevated':
+        return 'bg-white dark:bg-[#1A2B42] shadow-lg';
+      case 'stat':
+        return 'bg-gradient-to-br from-[#00D66F] to-[#00A854] text-white border-0';
+      default:
+        return '';
+    }
   };
 
-  const paddingClasses = {
-    none: 'p-0',
-    sm: 'p-3',
-    md: 'p-4',
-    lg: 'p-6',
+  const getPaddingClasses = (padding: string) => {
+    switch (padding) {
+      case 'none': return 'p-0';
+      case 'sm': return 'p-3';
+      case 'md': return 'p-4';
+      case 'lg': return 'p-6';
+      default: return 'p-4';
+    }
   };
 
   const combinedClasses = `
-    ${variantClasses[variant]}
-    ${paddingClasses[padding]}
-    rounded-[var(--radius-lg)]
+    ${getVariantClasses(variant)}
+    ${getPaddingClasses(padding)}
+    rounded-xl
     ${hover ? 'transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer' : ''}
     ${className}
   `;
 
   return (
-    <div className={combinedClasses} data-test={dataTest} onClick={onClick}>
+    <div
+      className={combinedClasses}
+      data-test={dataTest}
+      onClick={onClick}
+    >
       {children}
     </div>
   );

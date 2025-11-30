@@ -18,21 +18,23 @@ import { BFMoneyInput } from '../components/BF-MoneyInput';
 import { BFTextarea } from '../components/BF-Textarea';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
 import { BFWhatsAppPreview } from '../components/BF-WhatsAppPreview';
-import { 
-  ArrowLeft, 
-  Save, 
-  CheckCircle, 
+import {
+  ArrowLeft,
+  Save,
+  CheckCircle,
   User,
   Building2,
   DollarSign,
   CreditCard,
   AlertCircle
 } from 'lucide-react';
+import { workspacesAPI, playersAPI } from '../lib/axios';
 
 // Tipos
 interface CreditForm {
   phone: string;
   workspaceSlug: string;
+  workspaceId: string;
   amount: string;
   amountCents: number;
   paymentMethod: string;
@@ -40,12 +42,14 @@ interface CreditForm {
 }
 
 interface UserInfo {
+  id: string;
   name: string;
   phone: string;
   found: boolean;
 }
 
 interface WorkspaceInfo {
+  id: string;
   name: string;
   slug: string;
   found: boolean;
@@ -67,6 +71,7 @@ export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
   const [formData, setFormData] = useState<CreditForm>({
     phone: '',
     workspaceSlug: '',
+    workspaceId: '',
     amount: '',
     amountCents: 0,
     paymentMethod: 'pix',
@@ -95,85 +100,113 @@ export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
     });
   };
 
-  // Busca usuário por telefone (simulado)
+  // Busca usuário por telefone
   useEffect(() => {
     if (formData.phone.length >= 10) {
       setCheckingUser(true);
-      
-      // Simula busca de usuário
-      setTimeout(() => {
-        // Simula: 90% de chance de encontrar usuário
-        if (Math.random() > 0.1) {
-          setUserInfo({
-            name: 'João Silva',
-            phone: formData.phone,
-            found: true,
-          });
-          setErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors.phone;
-            return newErrors;
-          });
-        } else {
-          setUserInfo({
-            name: '',
-            phone: formData.phone,
-            found: false,
-          });
+
+      const checkUser = async () => {
+        try {
+          // Remove formatação do telefone para busca
+          const cleanPhone = formData.phone.replace(/\D/g, '');
+          const response = await playersAPI.getPlayers({ search: cleanPhone });
+
+          if (response.players.length > 0) {
+            const player = response.players[0];
+            setUserInfo({
+              id: player.id,
+              name: player.name,
+              phone: player.phone,
+              found: true,
+            });
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors.phone;
+              return newErrors;
+            });
+          } else {
+            setUserInfo({
+              id: '',
+              name: '',
+              phone: formData.phone,
+              found: false,
+            });
+            setErrors((prev) => ({
+              ...prev,
+              phone: 'Seu número não está cadastrado. Peça a um admin para cadastrar.',
+            }));
+          }
+        } catch (error) {
+          console.error('Erro ao buscar usuário:', error);
           setErrors((prev) => ({
             ...prev,
-            phone: 'Seu número não está cadastrado. Peça a um admin para cadastrar.',
+            phone: 'Erro ao buscar usuário.',
           }));
+        } finally {
+          setCheckingUser(false);
         }
-        setCheckingUser(false);
-      }, 800);
+      };
+
+      const timeoutId = setTimeout(checkUser, 800);
+      return () => clearTimeout(timeoutId);
     } else {
       setUserInfo(null);
     }
   }, [formData.phone]);
 
-  // Busca workspace por slug (simulado)
+  // Busca workspace por slug
   useEffect(() => {
     if (formData.workspaceSlug.length >= 3) {
       setCheckingWorkspace(true);
-      
-      // Simula busca de workspace
-      setTimeout(() => {
-        // Lista de workspaces fictícios
-        const workspaces: Record<string, string> = {
-          'arena': 'Arena Futsal',
-          'campo-do-viana': 'Campo do Viana',
-          'pelada-terça': 'Pelada de Terça',
-        };
 
-        const name = workspaces[formData.workspaceSlug.toLowerCase()];
-        
-        if (name) {
-          setWorkspaceInfo({
-            name,
-            slug: formData.workspaceSlug,
-            found: true,
-          });
-          setErrors((prev) => {
-            const newErrors = { ...prev };
-            delete newErrors.workspaceSlug;
-            return newErrors;
-          });
-        } else {
-          setWorkspaceInfo({
-            name: '',
-            slug: formData.workspaceSlug,
-            found: false,
-          });
+      const checkWorkspace = async () => {
+        try {
+          const response = await workspacesAPI.getAllWorkspaces();
+          const workspaces = response.workspaces || [];
+          const workspace = workspaces.find((w: any) => w.slug === formData.workspaceSlug.toLowerCase());
+
+          if (workspace) {
+            setWorkspaceInfo({
+              id: workspace.id,
+              name: workspace.name,
+              slug: workspace.slug,
+              found: true,
+            });
+            updateField('workspaceId', workspace.id);
+            setErrors((prev) => {
+              const newErrors = { ...prev };
+              delete newErrors.workspaceSlug;
+              return newErrors;
+            });
+          } else {
+            setWorkspaceInfo({
+              id: '',
+              name: '',
+              slug: formData.workspaceSlug,
+              found: false,
+            });
+            updateField('workspaceId', '');
+            setErrors((prev) => ({
+              ...prev,
+              workspaceSlug: `Workspace "${formData.workspaceSlug}" não encontrado.`,
+            }));
+          }
+        } catch (error) {
+          console.error('Erro ao buscar workspace:', error);
           setErrors((prev) => ({
             ...prev,
-            workspaceSlug: `Workspace "${formData.workspaceSlug}" não encontrado.`,
+            workspaceSlug: 'Erro ao buscar workspace.',
           }));
+        } finally {
+          setCheckingWorkspace(false);
         }
-        setCheckingWorkspace(false);
-      }, 600);
+      };
+
+      const timeoutId = setTimeout(checkWorkspace, 600);
+      return () => clearTimeout(timeoutId);
     } else {
       setWorkspaceInfo(null);
+      updateField('workspaceId', '');
     }
   }, [formData.workspaceSlug]);
 
@@ -220,14 +253,32 @@ export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
     setLoading(true);
     setSuccess(false);
 
-    // Simula chamada de API
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      await playersAPI.addCredit(userInfo!.id, {
+        workspaceId: workspaceInfo!.id,
+        amountCents: formData.amountCents,
+        note: formData.note,
+        method: formData.paymentMethod,
+      });
 
-    setLoading(false);
-    setSuccess(true);
+      setLoading(false);
+      setSuccess(true);
 
-    // Esconde mensagem de sucesso após 5s
-    setTimeout(() => setSuccess(false), 5000);
+      // Limpar formulário
+      setFormData(prev => ({
+        ...prev,
+        amount: '',
+        amountCents: 0,
+        note: 'Crédito adicionado via painel',
+      }));
+
+      // Esconde mensagem de sucesso após 5s
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (error) {
+      console.error('Erro ao adicionar crédito:', error);
+      setLoading(false);
+      // Adicionar tratamento de erro visual aqui se necessário
+    }
   };
 
   // Formata valor para exibição

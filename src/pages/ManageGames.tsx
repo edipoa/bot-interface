@@ -442,7 +442,17 @@ const CreateGameForm: React.FC<{ onClose: () => void; onSuccess: () => void }> =
     chatId: '',
     workspaceId: ''
   });
-  const [chats, setChats] = React.useState<Array<{ id: string; chatId: string; name: string }>>([]);
+  const [chats, setChats] = React.useState<Array<{
+    id: string;
+    chatId: string;
+    name: string;
+    schedule?: {
+      title: string;
+      priceCents: number;
+      time: string;
+      weekday: number;
+    }
+  }>>([]);
   const [workspaces, setWorkspaces] = React.useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = React.useState(false);
   const [loadingChats, setLoadingChats] = React.useState(false);
@@ -493,6 +503,48 @@ const CreateGameForm: React.FC<{ onClose: () => void; onSuccess: () => void }> =
     setError(null);
   };
 
+  const handleChatChange = (chatId: string) => {
+    const selectedChat = chats.find(c => c.chatId === chatId);
+
+    setFormData(prev => {
+      const newData = { ...prev, chatId };
+
+      if (selectedChat?.schedule) {
+        if (selectedChat.schedule.title) {
+          newData.name = selectedChat.schedule.title;
+        }
+        if (selectedChat.schedule.priceCents) {
+          newData.priceInCents = selectedChat.schedule.priceCents;
+          newData.pricePerPlayer = (selectedChat.schedule.priceCents / 100).toFixed(2).replace('.', ',');
+        }
+        if (selectedChat.schedule.time) {
+          newData.time = selectedChat.schedule.time;
+        }
+
+        // Calculate next date based on weekday
+        if (selectedChat.schedule.weekday !== undefined) {
+          const today = new Date();
+          const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ...
+          const targetDay = selectedChat.schedule.weekday;
+
+          let daysUntilTarget = targetDay - currentDay;
+          if (daysUntilTarget <= 0) {
+            daysUntilTarget += 7;
+          }
+
+          const nextDate = new Date(today);
+          nextDate.setDate(today.getDate() + daysUntilTarget);
+
+          // Format as YYYY-MM-DD
+          const formattedDate = nextDate.toISOString().split('T')[0];
+          newData.date = formattedDate;
+        }
+      }
+
+      return newData;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -525,6 +577,24 @@ const CreateGameForm: React.FC<{ onClose: () => void; onSuccess: () => void }> =
       {error && (
         <BFAlertMessage variant="error" message={error} />
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BFSelect
+          label="Workspace"
+          options={workspaces.map(ws => ({ value: ws.id, label: ws.name }))}
+          value={formData.workspaceId}
+          onChange={(val) => handleChange('workspaceId', String(val))}
+          placeholder="Selecione o workspace"
+        />
+        <BFSelect
+          label="Chat"
+          options={chats.map(chat => ({ value: chat.chatId, label: chat.name }))}
+          value={formData.chatId}
+          onChange={(val) => handleChatChange(String(val))}
+          placeholder={loadingChats ? 'Carregando chats...' : formData.workspaceId ? 'Selecione o chat' : 'Selecione o workspace primeiro'}
+          disabled={!formData.workspaceId || loadingChats}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-4">
         <BFInput
@@ -597,24 +667,6 @@ const CreateGameForm: React.FC<{ onClose: () => void; onSuccess: () => void }> =
           onChange={(val) => handleChange('maxPlayers', val)}
           fullWidth
           required
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BFSelect
-          label="Workspace"
-          options={workspaces.map(ws => ({ value: ws.id, label: ws.name }))}
-          value={formData.workspaceId}
-          onChange={(val) => handleChange('workspaceId', String(val))}
-          placeholder="Selecione o workspace"
-        />
-        <BFSelect
-          label="Chat"
-          options={chats.map(chat => ({ value: chat.chatId, label: chat.name }))}
-          value={formData.chatId}
-          onChange={(val) => handleChange('chatId', String(val))}
-          placeholder={loadingChats ? 'Carregando chats...' : formData.workspaceId ? 'Selecione o chat' : 'Selecione o workspace primeiro'}
-          disabled={!formData.workspaceId || loadingChats}
         />
       </div>
 

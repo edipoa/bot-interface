@@ -83,9 +83,9 @@ export interface BFListViewProps<T> {
     stats: BFListViewStat[];
 
     // Filters
-    searchPlaceholder: string;
-    searchTerm: string;
-    onSearchChange: (value: string) => void;
+    searchPlaceholder?: string;
+    searchTerm?: string;
+    onSearchChange?: (value: string) => void;
     statusFilter?: BFListViewStatusFilter;
     customFilters?: React.ReactNode;
 
@@ -205,40 +205,44 @@ export function BFListView<T extends { id: string }>({
             )}
 
             {/* Filters */}
-            <BFCard variant="elevated" padding="lg">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                        <BFInput
-                            placeholder={searchPlaceholder}
-                            value={searchTerm}
-                            onChange={onSearchChange}
-                            icon={<BFIcons.Search size={20} />}
-                            fullWidth
-                            data-test={`${dataTest}-search`}
-                        />
+            {(onSearchChange || statusFilter || customFilters) && (
+                <BFCard variant="elevated" padding="lg">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        {onSearchChange && (
+                            <div className="flex-1">
+                                <BFInput
+                                    placeholder={searchPlaceholder}
+                                    value={searchTerm}
+                                    onChange={onSearchChange}
+                                    icon={<BFIcons.Search size={20} />}
+                                    fullWidth
+                                    data-test={`${dataTest}-search`}
+                                />
+                            </div>
+                        )}
+                        {statusFilter && (
+                            <div className="w-full md:w-48">
+                                <Select value={statusFilter.value} onValueChange={statusFilter.onChange}>
+                                    <SelectTrigger
+                                        data-test={`${dataTest}-filter-status`}
+                                        className="h-10 border border-[--border] bg-white dark:bg-gray-800"
+                                    >
+                                        <SelectValue placeholder="Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {statusFilter.options.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                        {customFilters}
                     </div>
-                    {statusFilter && (
-                        <div className="w-full md:w-48">
-                            <Select value={statusFilter.value} onValueChange={statusFilter.onChange}>
-                                <SelectTrigger
-                                    data-test={`${dataTest}-filter-status`}
-                                    className="h-10 border border-[--border] bg-white dark:bg-gray-800"
-                                >
-                                    <SelectValue placeholder="Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {statusFilter.options.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                    {customFilters}
-                </div>
-            </BFCard>
+                </BFCard>
+            )}
 
             {/* Table */}
             <BFCard variant="elevated" padding="none">

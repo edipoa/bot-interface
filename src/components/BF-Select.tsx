@@ -67,15 +67,16 @@ export const BFSelect: React.FC<BFSelectProps> = ({
           className={`
             h-12 px-4 rounded-xl border-2 transition-all duration-200
             font-normal text-left
-            ${error 
-              ? 'border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20 focus-visible:shadow-lg focus-visible:shadow-red-500/10' 
+            ${error
+              ? 'border-red-500 focus-visible:border-red-500 focus-visible:ring-red-500/20 focus-visible:shadow-lg focus-visible:shadow-red-500/10'
               : 'border-gray-300 dark:border-gray-700 focus-visible:border-[var(--bf-blue-primary)] focus-visible:ring-[var(--bf-blue-primary)]/10 focus-visible:shadow-lg focus-visible:shadow-blue-500/10'
             }
-            ${disabled 
-              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800' 
+            ${disabled
+              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800'
               : 'bg-white dark:bg-gray-800 hover:border-[var(--bf-blue-primary)]/50'
             }
             text-gray-900 dark:text-gray-100
+            !h-12
           `}
           data-test={`${dataTest}-trigger`}
           aria-invalid={!!error}
@@ -83,7 +84,7 @@ export const BFSelect: React.FC<BFSelectProps> = ({
         >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        
+
         <SelectContent
           className={`
             bg-white dark:bg-gray-900

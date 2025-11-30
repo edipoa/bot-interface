@@ -76,11 +76,11 @@ export const router = createBrowserRouter([
         element: <ManageChats />,
       },
       {
-        path: 'credits/add',
+        path: 'add-credit',
         element: <AddCredit />,
       },
       {
-        path: 'debits/add',
+        path: 'add-debit',
         element: <AddDebit />,
       },
       {

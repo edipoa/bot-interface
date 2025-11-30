@@ -7,7 +7,6 @@ import { GameDetail } from './pages/GameDetail';
 import { ManagePlayers } from './pages/ManagePlayers';
 import { ManageDebts } from './pages/ManageDebts';
 import { ManageWorkspaces } from './pages/ManageWorkspaces';
-import { ManageChats } from './pages/ManageChats';
 import { AddCredit } from './pages/AddCredit';
 import { AddDebit } from './pages/AddDebit';
 import { WorkspaceDetail } from './pages/WorkspaceDetail';
@@ -69,18 +68,13 @@ export default function App() {
       roles: ['admin'],
     },
     {
-      id: 'chats',
-      label: 'Chats',
-      icon: 'MessageSquare',
-      path: '/admin/chats',
-      roles: ['admin'],
-    },
-    {
       id: 'add-credit',
       label: 'Adicionar Crédito',
       icon: 'PlusCircle',
       path: '/admin/add-credit',
       roles: ['admin'],
+      separator: true,
+      sectionLabel: 'Ações Rápidas',
     },
     {
       id: 'add-debit',
@@ -124,7 +118,7 @@ export default function App() {
 
   const handleBackToWorkspaces = () => {
     setSelectedWorkspaceId(null);
-    setActiveItem('workspaces'); 
+    setActiveItem('workspaces');
   };
 
   const handleGameSelect = (gameId: string) => {
@@ -137,7 +131,7 @@ export default function App() {
     setActiveItem('games');
   };
 
-  const renderContent = () => {    
+  const renderContent = () => {
     if (selectedGameId) {
       return (
         <GameDetail
@@ -168,8 +162,6 @@ export default function App() {
           return <ManageDebts />;
         case 'workspaces':
           return <ManageWorkspaces onSelectWorkspace={handleWorkspaceSelect} />;
-        case 'chats':
-          return <ManageChats mode="create" />;
         case 'add-credit':
           return <AddCredit />;
         case 'add-debit':
@@ -226,47 +218,45 @@ export default function App() {
               <div className="flex items-center gap-4">
                 <h2 className="text-[var(--foreground)]">Bot Fut</h2>
                 <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setUserRole('admin');
-                    setActiveItem('dashboard');
-                  }}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    userRole === 'admin'
+                  <button
+                    onClick={() => {
+                      setUserRole('admin');
+                      setActiveItem('dashboard');
+                    }}
+                    className={`px-3 py-1.5 rounded-md transition-colors ${userRole === 'admin'
                       ? 'bg-[var(--primary)] text-white'
                       : 'bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--muted)]'
-                  }`}
-                  data-test="switch-to-admin"
-                >
-                  Admin View
+                      }`}
+                    data-test="switch-to-admin"
+                  >
+                    Admin View
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserRole('user');
+                      setActiveItem('user-dashboard');
+                    }}
+                    className={`px-3 py-1.5 rounded-md transition-colors ${userRole === 'user'
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--muted)]'
+                      }`}
+                    data-test="switch-to-user"
+                  >
+                    User View
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors relative">
+                  <BFIcons.Bell size={20} />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--destructive)] rounded-full" />
                 </button>
-                <button
-                  onClick={() => {
-                    setUserRole('user');
-                    setActiveItem('user-dashboard');
-                  }}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
-                    userRole === 'user'
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'bg-[var(--accent)] text-[var(--foreground)] hover:bg-[var(--muted)]'
-                  }`}
-                  data-test="switch-to-user"
-                >
-                  User View
+                <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors">
+                  <BFIcons.Settings size={20} />
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors relative">
-                <BFIcons.Bell size={20} />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--destructive)] rounded-full" />
-              </button>
-              <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors">
-                <BFIcons.Settings size={20} />
-              </button>
-            </div>
           </div>
-        </div>
         )}
 
         {/* Content Area */}

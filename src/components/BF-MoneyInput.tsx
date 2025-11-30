@@ -28,13 +28,13 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
 
   const parsePriceToCents = (priceStr: string): number => {
     if (!priceStr) return 0;
-    
+
     const cleaned = priceStr.replace(/[^\d,.]|R\$|c/gi, '').trim();
-    
+
     if (priceStr.toLowerCase().endsWith('c')) {
       return parseInt(cleaned) || 0;
     }
-    
+
     const normalized = cleaned.replace(',', '.');
     const float = parseFloat(normalized) || 0;
     return Math.round(float * 100);
@@ -46,22 +46,22 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value;
-    
+
     const numbers = newValue.replace(/\D/g, '');
-    
+
     if (!numbers) {
       onChange('', 0);
       return;
     }
-    
+
     const valueInCents = parseInt(numbers);
     const valueInReais = valueInCents / 100;
-    
+
     const formatted = valueInReais.toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
-    
+
     console.log('BFMoneyInput - input:', numbers, 'formatted:', formatted, 'cents:', valueInCents);
     onChange(formatted, valueInCents);
   };
@@ -111,7 +111,7 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
           placeholder={placeholder}
           className={`
             flex-1 bg-transparent outline-none
-            text-foreground placeholder:text-muted-foreground
+            text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
             ${disabled ? 'cursor-not-allowed' : ''}
           `}
           data-test={`${dataTest}-field`}

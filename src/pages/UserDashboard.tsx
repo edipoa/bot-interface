@@ -3,6 +3,7 @@ import { BFCard, BFCardHeader, BFCardContent } from '../components/BF-Card';
 import { BFBadge } from '../components/BF-Badge';
 import { BFButton } from '../components/BF-Button';
 import { BFIcons } from '../components/BF-Icons';
+import { BFListView } from '../components/BFListView';
 
 import { useAuth } from '../components/ProtectedRoute';
 import { debtsAPI, gamesAPI, ledgersAPI } from '../lib/axios';
@@ -25,7 +26,7 @@ export const UserDashboard: React.FC = () => {
       console.error('Chave PIX não disponível');
       return;
     }
-    
+
     try {
       await navigator.clipboard.writeText(pixKey);
       setCopiedDebtId(debtId);
@@ -41,7 +42,7 @@ export const UserDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         const debtsResponse = await debtsAPI.getMyDebts();
         const debtsData = debtsResponse.data || debtsResponse;
         const mappedDebts = Array.isArray(debtsData) ? debtsData.map((debt: any) => ({
@@ -89,7 +90,7 @@ export const UserDashboard: React.FC = () => {
           total: ledgersResponse.total || 0,
           limit: ledgersResponse.limit || 5
         });
-        
+
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError('Erro ao carregar dados');
@@ -108,7 +109,7 @@ export const UserDashboard: React.FC = () => {
   const totalDebt = pendingDebts.filter(f => f.status === 'pendente' && f.type === 'debit').reduce((sum, d) => sum + d.amount, 0);
 
   const upcomingGames = games;
-  
+
   const loadTransactionsPage = async (page: number) => {
     try {
       const response = await ledgersAPI.getMyLedgers(page, 5);
@@ -132,7 +133,7 @@ export const UserDashboard: React.FC = () => {
       console.error('Error loading transactions page:', error);
     }
   };
-  
+
   const getDebtStatusBadge = (status: string) => {
     const statusMap = {
       pending: { variant: 'warning' as const, label: 'Pendente' },
@@ -327,90 +328,75 @@ export const UserDashboard: React.FC = () => {
       </div>
 
       {/* Transaction History */}
-      <BFCard variant="elevated" padding="lg" data-test="transaction-history">
-        <BFCardHeader
-          title="Histórico de Transações"
-          subtitle={`${transactionsPagination.total} movimentações`}
-        />
-        <BFCardContent>
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 text-[--muted-foreground]">
-              <p>Nenhuma transação encontrada</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-3">
-                {transactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-[--accent] rounded-lg border border-[--border]"
-                  >
-                    <div className="flex items-start sm:items-center gap-3">
-                      <div
-                        className={`p-2 rounded-lg flex-shrink-0 ${transaction.type === 'payment'
-                          ? 'bg-[--success]/10'
-                          : 'bg-[--destructive]/10'
-                          }`}
-                      >
-                        {transaction.type === 'payment' ? (
-                          <BFIcons.TrendingUp size={18} color="var(--success)" className="sm:w-5 sm:h-5" />
-                        ) : (
-                          <BFIcons.TrendingDown size={18} color="var(--destructive)" className="sm:w-5 sm:h-5" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm sm:text-base text-[--foreground] font-medium">{transaction.description}</p>
-                        <p className="text-xs sm:text-sm text-[--muted-foreground]">
-                          {new Date(transaction.date).toLocaleDateString('pt-BR')} às {new Date(transaction.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                    <p
-                      className={`text-base sm:text-lg font-semibold text-right sm:text-left ${
-                        transaction.type === 'payment'
-                          ? 'text-[--success]'
-                          : 'text-[--destructive]'
-                      }`}
-                    >
-                      {transaction.amount > 0 ? '+' : ''}R${' '}
-                      {Math.abs(transaction.amount).toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Paginação */}
-              {transactionsPagination.totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-4 border-t border-[--border]">
-                  <p className="text-xs sm:text-sm text-[--muted-foreground]">
-                    Página {transactionsPagination.page} de {transactionsPagination.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <BFButton
-                      variant="outline"
-                      size="sm"
-                      disabled={transactionsPagination.page === 1}
-                      onClick={() => loadTransactionsPage(transactionsPagination.page - 1)}
-                    >
-                      Anterior
-                    </BFButton>
-                    <BFButton
-                      variant="outline"
-                      size="sm"
-                      disabled={transactionsPagination.page === transactionsPagination.totalPages}
-                      onClick={() => loadTransactionsPage(transactionsPagination.page + 1)}
-                    >
-                      Próxima
-                    </BFButton>
-                  </div>
+      <BFListView
+        title="Histórico de Transações"
+        description={`${transactionsPagination.total} movimentações`}
+        stats={[]}
+        columns={[
+          {
+            key: 'description',
+            label: 'Descrição',
+            render: (value: string, row: any) => (
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2 rounded-lg flex-shrink-0 ${row.type === 'payment'
+                    ? 'bg-[--success]/10'
+                    : 'bg-[--destructive]/10'
+                    }`}
+                >
+                  {row.type === 'payment' ? (
+                    <BFIcons.TrendingUp size={18} color="var(--success)" className="sm:w-5 sm:h-5" />
+                  ) : (
+                    <BFIcons.TrendingDown size={18} color="var(--destructive)" className="sm:w-5 sm:h-5" />
+                  )}
                 </div>
-              )}
-            </>
-          )}
-        </BFCardContent>
-      </BFCard>
+                <span className="font-medium text-[--foreground]">{value}</span>
+              </div>
+            ),
+          },
+          {
+            key: 'amount',
+            label: 'Valor',
+            render: (value: number, row: any) => (
+              <span
+                className={`font-semibold ${row.type === 'payment'
+                  ? 'text-[--success]'
+                  : 'text-[--destructive]'
+                  }`}
+              >
+                {value > 0 ? '+' : ''}R$ {Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            ),
+          },
+          {
+            key: 'date',
+            label: 'Data',
+            render: (value: string) => (
+              <span className="text-[--muted-foreground]">
+                {new Date(value).toLocaleDateString('pt-BR')} às {new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            ),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            render: (value: string) => getDebtStatusBadge(value),
+          },
+        ]}
+        data={transactions}
+        loading={loading}
+        pagination={{
+          page: transactionsPagination.page,
+          limit: transactionsPagination.limit,
+          total: transactionsPagination.total,
+          totalPages: transactionsPagination.totalPages,
+          onPageChange: loadTransactionsPage,
+        }}
+        emptyState={{
+          message: 'Nenhuma transação encontrada',
+          icon: <BFIcons.Search size={48} className="text-[--muted-foreground] mb-3" />
+        }}
+      />
     </div>
   );
 };

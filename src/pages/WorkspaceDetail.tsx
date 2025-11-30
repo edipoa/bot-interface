@@ -1,433 +1,804 @@
-import React, { useState, useMemo } from 'react';
-import { BFHeaderBar } from '../components/BF-HeaderBar';
-import { BFSearchInput } from '../components/BF-SearchInput';
-import { BFWorkspaceCard } from '../components/BF-WorkspaceCard';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { BFCard } from '../components/BF-Card';
 import { BFButton } from '../components/BF-Button';
 import { BFBadge } from '../components/BF-Badge';
-import { BFCard } from '../components/BF-Card';
 import { BFIcons } from '../components/BF-Icons';
-import { mockWorkspaces, mockChats } from '../lib/mockData';
-import type { Chat } from '../lib/types';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
+import { BFInput } from '../components/BF-Input';
+import { BFSelect } from '../components/BF-Select';
+import { BFTimeInput } from '../components/BF-TimeInput';
+import { BFMoneyInput } from '../components/BF-MoneyInput';
+import { workspacesAPI, chatsAPI } from '../lib/axios';
+import type { Workspace, Chat } from '../lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { toast } from 'sonner';
 
 interface WorkspaceDetailProps {
   workspaceId?: string;
   onBack?: () => void;
 }
 
-export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({
-  workspaceId = '1',
-  onBack,
-}) => {
+export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: propWorkspaceId, onBack }) => {
+  const params = useParams<{ workspaceId: string }>();
+  const navigate = useNavigate();
+
+  // Use prop workspaceId if provided, otherwise use params from router
+  const workspaceId = propWorkspaceId || params.workspaceId;
+
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [chatToDelete, setChatToDelete] = useState<Chat | null>(null);
-  const [selectedChatForDebts, setSelectedChatForDebts] = useState<Chat | null>(null);
-  const [selectedChatToOpen, setSelectedChatToOpen] = useState<Chat | null>(null);
 
-  const workspace = mockWorkspaces.find((w) => w.id === workspaceId);
-  const allChats = mockChats.filter((c) => c.workspaceId === workspaceId);
+  // Edit chat dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingChat, setEditingChat] = useState<Chat | null>(null);
+  const [chatName, setChatName] = useState('');
+  const [chatStatus, setChatStatus] = useState('active');
+  const [scheduleWeekday, setScheduleWeekday] = useState('2');
+  const [scheduleTime, setScheduleTime] = useState('20:30');
+  const [scheduleTitle, setScheduleTitle] = useState('');
+  const [schedulePrice, setSchedulePrice] = useState('');
+  const [schedulePix, setSchedulePix] = useState('');
 
-  const filteredChats = useMemo(() => {
-    return allChats.filter((chat) => {
-      const matchesSearch =
-        chat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        chat.chatId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (chat.label && chat.label.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Create chat dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newChatId, setNewChatId] = useState('');
+  const [newChatLabel, setNewChatLabel] = useState('');
+  const [newChatType, setNewChatType] = useState<'group' | 'private'>('group');
 
-      const matchesStatus = statusFilter === 'all' || chat.status === statusFilter;
-      const matchesType = typeFilter === 'all' || chat.type === typeFilter;
+  // Settings dialog state
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [organizzeEmail, setOrganizzeEmail] = useState('');
+  const [organizzeApiKey, setOrganizzeApiKey] = useState('');
+  const [organizzeAccountId, setOrganizzeAccountId] = useState('');
+  const [categoryFieldPayment, setCategoryFieldPayment] = useState('');
+  const [categoryPlayerPayment, setCategoryPlayerPayment] = useState('');
+  const [categoryPlayerDebt, setCategoryPlayerDebt] = useState('');
+  const [categoryGeneral, setCategoryGeneral] = useState('');
 
-      return matchesSearch && matchesStatus && matchesType;
-    });
-  }, [allChats, searchTerm, statusFilter, typeFilter]);
+  // Fetch data
+  useEffect(() => {
+    if (workspaceId) {
+      fetchWorkspaceData();
+    }
+  }, [workspaceId]);
 
-  const stats = {
-    total: allChats.length,
-    active: allChats.filter((c) => c.status === 'active').length,
-    inactive: allChats.filter((c) => c.status === 'inactive').length,
-    archived: allChats.filter((c) => c.status === 'archived').length,
-    totalMembers: allChats.reduce((sum, c) => sum + c.memberCount, 0),
-  };
+  const fetchWorkspaceData = async () => {
+    if (!workspaceId) return;
 
-  const handleDeleteChat = (chatId: string) => {
-    const chat = allChats.find((c) => c.id === chatId);
-    if (chat) {
-      setChatToDelete(chat);
+    try {
+      setLoading(true);
+      const [workspaceData, chatsData, statsData] = await Promise.all([
+        workspacesAPI.getWorkspace(workspaceId),
+        workspacesAPI.getWorkspaceChats(workspaceId),
+        workspacesAPI.getWorkspaceStats(workspaceId),
+      ]);
+
+      setWorkspace(workspaceData);
+
+      // Populate Organizze settings if available
+      if (workspaceData.organizzeConfig) {
+        setOrganizzeEmail(workspaceData.organizzeConfig.email || '');
+        setOrganizzeAccountId(workspaceData.organizzeConfig.accountId?.toString() || '');
+        setCategoryFieldPayment(workspaceData.organizzeConfig.categories?.fieldPayment?.toString() || '');
+        setCategoryPlayerPayment(workspaceData.organizzeConfig.categories?.playerPayment?.toString() || '');
+        setCategoryPlayerDebt(workspaceData.organizzeConfig.categories?.playerDebt?.toString() || '');
+        setCategoryGeneral(workspaceData.organizzeConfig.categories?.general?.toString() || '');
+      }
+
+      // Map _id to id for chats
+      const mappedChats = chatsData.map((chat: any) => ({
+        ...chat,
+        id: chat._id || chat.id,
+      }));
+      setChats(mappedChats);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error fetching workspace data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const confirmDelete = () => {
-    if (chatToDelete) {
-      console.log('Deletando chat:', chatToDelete.id);
-      setChatToDelete(null);
+  // Filter chats
+  const filteredChats = chats.filter(chat =>
+    (chat.name?.toLowerCase() || chat.label?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (chat.chatId?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  );
+
+  // Open edit chat dialog
+  const handleEditChat = (chat: Chat) => {
+    setEditingChat(chat);
+    setChatName(chat.name || chat.label || '');
+    setChatStatus(chat.status);
+
+    if (chat.schedule) {
+      setScheduleWeekday(chat.schedule.weekday.toString());
+      setScheduleTime(chat.schedule.time);
+      setScheduleTitle(chat.schedule.title);
+      setSchedulePrice((chat.schedule.priceCents / 100).toString());
+      setSchedulePix(chat.schedule.pix);
+    } else {
+      setScheduleWeekday('2');
+      setScheduleTime('20:30');
+      setScheduleTitle('');
+      setSchedulePrice('');
+      setSchedulePix('');
+    }
+
+    setEditDialogOpen(true);
+  };
+
+  // Save chat changes
+  const handleSaveChat = async () => {
+    if (!editingChat) return;
+
+    try {
+      await chatsAPI.updateChat(editingChat.id, {
+        name: chatName,
+        label: chatName,
+        status: chatStatus as 'active' | 'inactive' | 'archived',
+        schedule: {
+          weekday: parseInt(scheduleWeekday),
+          time: scheduleTime,
+          title: scheduleTitle,
+          priceCents: Math.round(parseFloat(schedulePrice) * 100),
+          pix: schedulePix,
+        },
+      });
+
+      toast.success('Chat atualizado com sucesso!');
+      setEditDialogOpen(false);
+      await fetchWorkspaceData(); // Refresh data
+    } catch (error) {
+      console.error('Error saving chat:', error);
+      toast.error('Erro ao atualizar chat. Tente novamente.');
     }
   };
 
-  const handleOpenChat = (chatId: string) => {
-    const chat = allChats.find((c) => c.id === chatId);
-    if (chat) {
-      setSelectedChatToOpen(chat);
-      console.log('Abrindo chat:', chat);
+  // Open settings dialog
+  const handleOpenSettings = () => {
+    if (workspace?.organizzeConfig) {
+      setOrganizzeEmail(workspace.organizzeConfig.email || '');
+      setOrganizzeAccountId(workspace.organizzeConfig.accountId?.toString() || '');
+      setCategoryFieldPayment(workspace.organizzeConfig.categories?.fieldPayment?.toString() || '');
+      setCategoryPlayerPayment(workspace.organizzeConfig.categories?.playerPayment?.toString() || '');
+      setCategoryPlayerDebt(workspace.organizzeConfig.categories?.playerDebt?.toString() || '');
+      setCategoryGeneral(workspace.organizzeConfig.categories?.general?.toString() || '');
+    }
+    setSettingsDialogOpen(true);
+  };
+
+  // Save Organizze settings
+  const handleSaveOrganizzeSettings = async () => {
+    if (!workspaceId) return;
+
+    try {
+      await workspacesAPI.updateOrganizzeSettings(workspaceId, {
+        email: organizzeEmail,
+        apiKey: organizzeApiKey,
+        accountId: parseInt(organizzeAccountId),
+        categories: {
+          fieldPayment: parseInt(categoryFieldPayment),
+          playerPayment: parseInt(categoryPlayerPayment),
+          playerDebt: parseInt(categoryPlayerDebt),
+          general: parseInt(categoryGeneral),
+        },
+      });
+
+      toast.success('Configurações do Organizze atualizadas com sucesso!');
+      setSettingsDialogOpen(false);
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error saving Organizze settings:', error);
+      toast.error('Erro ao salvar configurações do Organizze. Tente novamente.');
     }
   };
 
-  const handleViewDebts = (chatId: string) => {
-    const chat = allChats.find((c) => c.id === chatId);
-    if (chat) {
-      setSelectedChatForDebts(chat);
-      console.log('Visualizando débitos do chat:', chat);
+  // Create new chat
+  const handleCreateChat = async () => {
+    if (!workspaceId || !newChatId) return;
+
+    try {
+      await chatsAPI.createChat({
+        workspaceId,
+        chatId: newChatId,
+        name: newChatLabel,
+        label: newChatLabel,
+        type: newChatType,
+        schedule: {
+          weekday: parseInt(scheduleWeekday),
+          time: scheduleTime,
+          title: scheduleTitle,
+          priceCents: Math.round(parseFloat(schedulePrice || '0') * 100),
+          pix: schedulePix,
+        },
+      });
+
+      // Reset form
+      setNewChatId('');
+      setNewChatLabel('');
+      setNewChatType('group');
+      setScheduleWeekday('2');
+      setScheduleTime('20:30');
+      setScheduleTitle('');
+      setSchedulePrice('');
+      setSchedulePix('');
+
+      toast.success('Chat criado com sucesso!');
+      setCreateDialogOpen(false);
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      toast.error('Erro ao criar chat. Tente novamente.');
     }
   };
 
-  const getPlatformIcon = () => {
-    if (!workspace) return <BFIcons.MessageSquare size={24} color="white" />;
-    const icons = {
-      whatsapp: <BFIcons.MessageSquare size={24} color="white" />,
-      telegram: <BFIcons.MessageSquare size={24} color="white" />,
-      discord: <BFIcons.MessageSquare size={24} color="white" />,
-    };
-    return icons[workspace.platform];
-  };
+  const weekdayOptions = [
+    { value: '0', label: 'Domingo' },
+    { value: '1', label: 'Segunda-feira' },
+    { value: '2', label: 'Terça-feira' },
+    { value: '3', label: 'Quarta-feira' },
+    { value: '4', label: 'Quinta-feira' },
+    { value: '5', label: 'Sexta-feira' },
+    { value: '6', label: 'Sábado' },
+  ];
+
+  const statusOptions = [
+    { value: 'active', label: 'Ativo' },
+    { value: 'inactive', label: 'Inativo' },
+    { value: 'archived', label: 'Arquivado' },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
+          <p className="mt-2 text-[--muted-foreground]">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!workspace) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <h2 className="text-[--foreground] mb-2">Workspace não encontrado</h2>
-          <BFButton variant="primary" onClick={onBack}>
-            Voltar
-          </BFButton>
+          <h2 className="text-[--foreground]">Workspace não encontrado</h2>
+          <div className="flex items-center gap-4 mb-6">
+            <BFButton variant="outline" onClick={() => onBack ? onBack() : navigate('/admin/workspaces')}>
+              Voltar para Workspaces
+            </BFButton>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[--background]" data-test="workspace-detail">
-      {/* Header Bar */}
-      <BFHeaderBar
-        title={workspace.name}
-        subtitle={workspace.description}
-        icon={getPlatformIcon()}
-        badge={{
-          text: workspace.status === 'active' ? 'Ativo' : workspace.status === 'maintenance' ? 'Manutenção' : 'Inativo',
-          variant: workspace.status === 'active' ? 'success' : workspace.status === 'maintenance' ? 'warning' : 'neutral',
-        }}
-        onBack={onBack}
-        actions={
-          <>
-            <BFButton
-              variant="secondary"
-              size="sm"
-              icon={<BFIcons.RefreshCw size={16} />}
-              data-test="sync-workspace"
-            >
-              Sincronizar
-            </BFButton>
-            <BFButton
-              variant="ghost"
-              size="sm"
-              icon={<BFIcons.Settings size={16} />}
-              data-test="workspace-settings"
-            />
-          </>
-        }
-        data-test="workspace-header"
-      />
-
-      <div className="p-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <BFCard variant="outlined" padding="md">
-            <div className="flex items-center gap-3">
-              <div className="bg-[--primary]/10 p-2 rounded-lg">
-                <BFIcons.MessageSquare size={20} color="var(--primary)" />
-              </div>
-              <div>
-                <p className="text-[--muted-foreground]">Total de Chats</p>
-                <h3 className="text-[--foreground]">{stats.total}</h3>
-              </div>
-            </div>
-          </BFCard>
-
-          <BFCard variant="outlined" padding="md">
-            <div className="flex items-center gap-3">
-              <div className="bg-[--success]/10 p-2 rounded-lg">
-                <BFIcons.CheckCircle size={20} color="var(--success)" />
-              </div>
-              <div>
-                <p className="text-[--muted-foreground]">Ativos</p>
-                <h3 className="text-[--foreground]">{stats.active}</h3>
-              </div>
-            </div>
-          </BFCard>
-
-          <BFCard variant="outlined" padding="md">
-            <div className="flex items-center gap-3">
-              <div className="bg-[--destructive]/10 p-2 rounded-lg">
-                <BFIcons.Archive size={20} color="var(--destructive)" />
-              </div>
-              <div>
-                <p className="text-[--muted-foreground]">Arquivados</p>
-                <h3 className="text-[--foreground]">{stats.archived}</h3>
-              </div>
-            </div>
-          </BFCard>
-
-          <BFCard variant="outlined" padding="md">
-            <div className="flex items-center gap-3">
-              <div className="bg-[--info]/10 p-2 rounded-lg">
-                <BFIcons.Users size={20} color="var(--info)" />
-              </div>
-              <div>
-                <p className="text-[--muted-foreground]">Total Membros</p>
-                <h3 className="text-[--foreground]">{stats.totalMembers}</h3>
-              </div>
-            </div>
-          </BFCard>
-
-          <BFCard variant="outlined" padding="md">
-            <div className="flex items-center gap-3">
-              <div className="bg-[--warning]/10 p-2 rounded-lg">
-                <BFIcons.Clock size={20} color="var(--warning)" />
-              </div>
-              <div>
-                <p className="text-[--muted-foreground]">Último Sync</p>
-                <p className="text-[--foreground] text-sm">
-                  {new Date(workspace.lastSync).toLocaleTimeString('pt-BR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </p>
-              </div>
-            </div>
-          </BFCard>
-        </div>
-
-        {/* Search and Filters */}
-        <BFCard variant="elevated" padding="lg">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-6">
-              <BFSearchInput
-                placeholder="Buscar por nome, ID ou label..."
-                value={searchTerm}
-                onChange={setSearchTerm}
-                onClear={() => setSearchTerm('')}
-                data-test="search-chats"
-              />
-            </div>
-            <div className="md:col-span-3">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger data-test="filter-status">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Status</SelectItem>
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
-                  <SelectItem value="archived">Arquivado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-3">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger data-test="filter-type">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Tipos</SelectItem>
-                  <SelectItem value="group">Grupo</SelectItem>
-                  <SelectItem value="private">Privado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Active Filters */}
-          {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[--border]">
-              <span className="text-sm text-[--muted-foreground]">Filtros ativos:</span>
-              {searchTerm && (
-                <BFBadge variant="neutral">
-                  Busca: "{searchTerm}"
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="ml-1 hover:bg-black/10 rounded-full p-0.5"
-                  >
-                    <BFIcons.X size={12} />
-                  </button>
-                </BFBadge>
-              )}
-              {statusFilter !== 'all' && (
-                <BFBadge variant="neutral">
-                  Status: {statusFilter}
-                  <button
-                    onClick={() => setStatusFilter('all')}
-                    className="ml-1 hover:bg-black/10 rounded-full p-0.5"
-                  >
-                    <BFIcons.X size={12} />
-                  </button>
-                </BFBadge>
-              )}
-              {typeFilter !== 'all' && (
-                <BFBadge variant="neutral">
-                  Tipo: {typeFilter}
-                  <button
-                    onClick={() => setTypeFilter('all')}
-                    className="ml-1 hover:bg-black/10 rounded-full p-0.5"
-                  >
-                    <BFIcons.X size={12} />
-                  </button>
-                </BFBadge>
-              )}
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setStatusFilter('all');
-                  setTypeFilter('all');
-                }}
-                className="text-sm text-[--primary] hover:underline ml-auto"
-              >
-                Limpar todos
-              </button>
-            </div>
-          )}
-        </BFCard>
-
-        {/* Results Info */}
-        <div className="flex items-center justify-between">
-          <p className="text-[--muted-foreground]">
-            Mostrando <span className="text-[--foreground]">{filteredChats.length}</span> de{' '}
-            <span className="text-[--foreground]">{stats.total}</span> chats
-          </p>
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
           <BFButton
-            variant="primary"
-            size="sm"
-            icon={<BFIcons.Plus size={16} />}
-            data-test="add-chat"
+            variant="secondary"
+            icon={<BFIcons.ArrowLeft size={20} />}
+            onClick={() => onBack ? onBack() : navigate('/admin/workspaces')}
           >
-            Adicionar Chat
+            Voltar
           </BFButton>
-        </div>
-
-        {/* Chats Grid */}
-        {filteredChats.length === 0 ? (
-          <BFCard variant="elevated" padding="lg">
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-[--accent] rounded-full flex items-center justify-center mx-auto mb-4">
-                <BFIcons.MessageSquare size={32} color="var(--muted-foreground)" />
-              </div>
-              <h3 className="text-[--foreground] mb-2">Nenhum chat encontrado</h3>
-              <p className="text-[--muted-foreground] mb-4">
-                {searchTerm || statusFilter !== 'all' || typeFilter !== 'all'
-                  ? 'Tente ajustar os filtros de busca'
-                  : 'Adicione um novo chat para começar'}
-              </p>
-              {(searchTerm || statusFilter !== 'all' || typeFilter !== 'all') && (
-                <BFButton
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('all');
-                    setTypeFilter('all');
-                  }}
-                >
-                  Limpar Filtros
-                </BFButton>
-              )}
-            </div>
-          </BFCard>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredChats.map((chat) => (
-              <BFWorkspaceCard
-                key={chat.id}
-                chat={chat}
-                onOpenChat={handleOpenChat}
-                onViewDebts={handleViewDebts}
-                onDelete={handleDeleteChat}
-                data-test={`chat-card-${chat.id}`}
-              />
-            ))}
+          <div>
+            <h1 className="text-[--foreground] mb-1">{workspace.name}</h1>
+            <p className="text-[--muted-foreground] text-sm">
+              {workspace.slug} • {workspace.platform}
+            </p>
           </div>
-        )}
+        </div>
+        <BFButton
+          variant="primary"
+          icon={<BFIcons.Settings size={20} />}
+          onClick={handleOpenSettings}
+        >
+          Configurações
+        </BFButton>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!chatToDelete} onOpenChange={() => setChatToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir o chat <strong>{chatToDelete?.name}</strong>?
-              Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-[--destructive] text-white hover:bg-[--destructive]/90"
-            >
-              Excluir
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Open Chat Dialog */}
-      <Dialog open={!!selectedChatToOpen} onOpenChange={() => setSelectedChatToOpen(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Abrir Chat</DialogTitle>
-            <DialogDescription>
-              Abrindo chat: {selectedChatToOpen?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-[--accent] p-4 rounded-lg">
-              <p className="text-sm text-[--muted-foreground] mb-2">ID do Chat</p>
-              <p className="text-[--foreground] font-mono">{selectedChatToOpen?.chatId}</p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <BFCard variant="elevated" padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[var(--primary)]/10">
+              <BFIcons.MessageSquare size={20} className="text-[var(--primary)]" />
             </div>
-            <div className="flex gap-2">
-              <BFButton variant="primary" className="flex-1">
-                Abrir no WhatsApp
-              </BFButton>
-              <BFButton variant="secondary" onClick={() => setSelectedChatToOpen(null)}>
-                Fechar
-              </BFButton>
+            <div>
+              <p className="text-sm text-[--muted-foreground]">Total de Chats</p>
+              <p className="text-xl text-[--foreground] font-semibold">{stats?.totalChats || 0}</p>
             </div>
           </div>
+        </BFCard>
+
+        <BFCard variant="elevated" padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[var(--info)]/10">
+              <BFIcons.Trophy size={20} className="text-[var(--info)]" />
+            </div>
+            <div>
+              <p className="text-sm text-[--muted-foreground]">Jogos</p>
+              <h3 className="text-xl font-semibold text-[--foreground]">{stats.totalGames || 0}</h3>
+            </div>
+          </div>
+        </BFCard>
+
+        <BFCard variant="elevated" padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[var(--warning)]/10">
+              <BFIcons.Calendar size={20} className="text-[var(--warning)]" />
+            </div>
+            <div>
+              <p className="text-sm text-[--muted-foreground]">Próximos Jogos</p>
+              <h3 className="text-xl font-semibold text-[--foreground]">{stats.upcomingGames || 0}</h3>
+            </div>
+          </div>
+        </BFCard>
+
+        <BFCard variant="elevated" padding="md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[var(--info)]/10">
+              <BFIcons.Settings size={20} className="text-[var(--info)]" />
+            </div>
+            <div>
+              <p className="text-sm text-[--muted-foreground]">Status</p>
+              <BFBadge variant={workspace.status === 'active' ? 'success' : 'neutral'}>
+                {workspace.status === 'active' ? 'Ativo' : 'Inativo'}
+              </BFBadge>
+            </div>
+          </div>
+        </BFCard>
+      </div>
+
+      {/* Workspace Settings */}
+      <BFCard variant="elevated" padding="lg">
+        <h2 className="text-[--foreground] mb-4">Configurações do Workspace</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-[--muted-foreground]">Jogadores Máximos</p>
+            <p className="text-[--foreground]">{workspace.settings?.maxPlayers || 16}</p>
+          </div>
+          <div>
+            <p className="text-sm text-[--muted-foreground]">Preço por Jogo</p>
+            <p className="text-[--foreground]">
+              R$ {((workspace.settings?.pricePerGameCents || 1400) / 100).toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-[--muted-foreground]">Chave PIX</p>
+            <p className="text-[--foreground]">{workspace.settings?.pix || 'Não configurado'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-[--muted-foreground]">Timezone</p>
+            <p className="text-[--foreground]">{workspace.timezone || 'America/Sao_Paulo'}</p>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-sm text-[--muted-foreground]">Comandos Habilitados</p>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {workspace.settings?.commandsEnabled?.map((cmd, idx) => (
+                <BFBadge key={idx} variant="info">{cmd}</BFBadge>
+              )) || <span className="text-[--muted-foreground]">Nenhum comando configurado</span>}
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-sm text-[--muted-foreground]">Integração Organizze</p>
+            <p className="text-[--foreground]">
+              {workspace.organizzeConfig?.hasApiKey ? (
+                <span className="flex items-center gap-2">
+                  <BFIcons.CheckCircle size={16} className="text-[var(--success)]" />
+                  Configurado ({workspace.organizzeConfig.email})
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <BFIcons.XCircle size={16} className="text-[var(--destructive)]" />
+                  Não configurado
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </BFCard>
+
+      {/* Chats List */}
+      <BFCard variant="elevated" padding="lg">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[--foreground]">Chats ({filteredChats.length})</h2>
+          <div className="flex items-center gap-3">
+            <div className="w-64">
+              <BFInput
+                placeholder="Buscar chats..."
+                value={searchTerm}
+                onChange={(value) => setSearchTerm(value)}
+                icon={<BFIcons.Search size={20} />}
+                fullWidth
+              />
+            </div>
+            <BFButton
+              variant="primary"
+              icon={<BFIcons.Plus size={20} />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              Adicionar Chat
+            </BFButton>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {filteredChats.length === 0 ? (
+            <div className="text-center py-8 text-[--muted-foreground]">
+              <BFIcons.MessageSquare size={48} className="mx-auto mb-2 opacity-50" />
+              <p>Nenhum chat encontrado</p>
+            </div>
+          ) : (
+            filteredChats.map((chat) => (
+              <BFCard key={chat.id} variant="outlined" padding="md" hover>
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="text-[--foreground]">{chat.label || chat.name || 'Chat sem nome'}</h3>
+                      <BFBadge variant={chat.status === 'active' ? 'success' : 'neutral'} size="sm">
+                        {chat.status === 'active' ? 'Ativo' : chat.status === 'inactive' ? 'Inativo' : 'Arquivado'}
+                      </BFBadge>
+                      {chat.label && chat.name && chat.label !== chat.name && (
+                        <BFBadge variant="info" size="sm">{chat.name}</BFBadge>
+                      )}
+                    </div>
+                    <p className="text-sm text-[--muted-foreground] mb-2">ID: {chat.chatId}</p>
+                    {chat.schedule && (
+                      <div className="flex flex-wrap gap-3 text-xs text-[--muted-foreground]">
+                        <span className="flex items-center gap-1">
+                          <BFIcons.Calendar size={14} />
+                          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][chat.schedule.weekday]}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <BFIcons.Clock size={14} />
+                          {chat.schedule.time}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <BFIcons.DollarSign size={14} />
+                          R$ {(chat.schedule.priceCents / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <BFButton
+                    variant="secondary"
+                    size="sm"
+                    icon={<BFIcons.Edit size={16} />}
+                    onClick={() => handleEditChat(chat)}
+                  >
+                    Editar
+                  </BFButton>
+                </div>
+              </BFCard>
+            ))
+          )}
+        </div>
+      </BFCard>
+
+      {/* Edit Chat Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle>Editar Chat</DialogTitle>
+            <DialogDescription>{editingChat?.name}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <BFInput
+                label="Nome do Chat"
+                value={chatName}
+                onChange={(value) => setChatName(value)}
+                fullWidth
+                inputSize="lg"
+              />
+            </div>
+
+            <div className="border-t border-[--border] pt-4">
+              <h4 className="text-sm font-medium text-[--foreground] mb-3">Schedule</h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <BFSelect
+                    label="Dia da Semana"
+                    value={scheduleWeekday}
+                    onChange={(value) => setScheduleWeekday(String(value))}
+                    options={weekdayOptions}
+                  />
+                </div>
+
+                <div>
+                  <BFTimeInput
+                    label="Horário"
+                    value={scheduleTime}
+                    onChange={(value) => setScheduleTime(value)}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <BFInput
+                    label="Título"
+                    value={scheduleTitle}
+                    onChange={(value) => setScheduleTitle(value)}
+                    placeholder="⚽ CAMPO DO VIANA"
+                    fullWidth
+                    inputSize="lg"
+                  />
+                </div>
+
+                <div>
+                  <BFMoneyInput
+                    label="Preço (por jogador)"
+                    value={schedulePrice}
+                    onChange={(value) => setSchedulePrice(value)}
+                    placeholder="14.00"
+                  />
+                </div>
+
+                <div>
+                  <BFInput
+                    label="Chave PIX"
+                    value={schedulePix}
+                    onChange={(value) => setSchedulePix(value)}
+                    placeholder="email@example.com"
+                    fullWidth
+                    inputSize="lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <BFButton variant="ghost" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </BFButton>
+            <BFButton variant="primary" onClick={handleSaveChat}>
+              Salvar
+            </BFButton>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* View Debts Dialog */}
-      <Dialog open={!!selectedChatForDebts} onOpenChange={() => setSelectedChatForDebts(null)}>
-        <DialogContent>
+      {/* Create Chat Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
-            <DialogTitle>Débitos do Chat</DialogTitle>
-            <DialogDescription>
-              Visualizando débitos de: {selectedChatForDebts?.name}
-            </DialogDescription>
+            <DialogTitle>Adicionar Novo Chat</DialogTitle>
+            <DialogDescription>Configure um novo chat para este workspace</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-center py-8">
-              <BFIcons.DollarSign size={48} color="var(--muted-foreground)" className="mx-auto mb-4" />
-              <p className="text-[--muted-foreground]">
-                Funcionalidade de débitos será implementada aqui
-              </p>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <BFInput
+                  label="Chat ID"
+                  value={newChatId}
+                  onChange={(value) => setNewChatId(value)}
+                  placeholder="120363374853351602@g.us"
+                  fullWidth
+                  inputSize="lg"
+                  helperText="ID do grupo/chat do WhatsApp"
+                />
+              </div>
+
+              <div>
+                <BFInput
+                  label="Nome/Label"
+                  value={newChatLabel}
+                  onChange={(value) => setNewChatLabel(value)}
+                  placeholder="Futebol - Terça"
+                  fullWidth
+                  inputSize="lg"
+                />
+              </div>
             </div>
-            <BFButton variant="secondary" onClick={() => setSelectedChatForDebts(null)} className="w-full">
-              Fechar
-            </BFButton>
+
+            <div className="border-t border-[--border] pt-4">
+              <h4 className="text-sm font-medium text-[--foreground] mb-3">Schedule</h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <BFSelect
+                    label="Dia da Semana"
+                    value={scheduleWeekday}
+                    onChange={(value) => setScheduleWeekday(String(value))}
+                    options={weekdayOptions}
+                  />
+                </div>
+
+                <div>
+                  <BFTimeInput
+                    label="Horário"
+                    value={scheduleTime}
+                    onChange={(value) => setScheduleTime(value)}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <BFInput
+                    label="Título"
+                    value={scheduleTitle}
+                    onChange={(value) => setScheduleTitle(value)}
+                    placeholder="⚽ CAMPO DO VIANA"
+                    fullWidth
+                    inputSize="lg"
+                  />
+                </div>
+
+                <div>
+                  <BFMoneyInput
+                    label="Preço (por jogador)"
+                    value={schedulePrice}
+                    onChange={(value) => setSchedulePrice(value)}
+                    placeholder="14.00"
+                  />
+                </div>
+
+                <div>
+                  <BFInput
+                    label="Chave PIX"
+                    value={schedulePix}
+                    onChange={(value) => setSchedulePix(value)}
+                    placeholder="email@example.com"
+                    fullWidth
+                    inputSize="lg"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
+
+          <DialogFooter>
+            <BFButton variant="ghost" onClick={() => setCreateDialogOpen(false)}>
+              Cancelar
+            </BFButton>
+            <BFButton variant="primary" onClick={handleCreateChat}>
+              Criar Chat
+            </BFButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog (Organizze) */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configurações do Workspace</DialogTitle>
+            <DialogDescription>{workspace.name}</DialogDescription>
+          </DialogHeader>
+
+          <Tabs defaultValue="organizze" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="general">Geral</TabsTrigger>
+              <TabsTrigger value="organizze">Integração Organizze</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-4">
+              <div className="py-4">
+                <p className="text-[--muted-foreground]">
+                  Configurações gerais em breve...
+                </p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="organizze" className="space-y-4">
+              <div className="space-y-4 py-4">
+                <div>
+                  <BFInput
+                    label="Email do Organizze"
+                    value={organizzeEmail}
+                    onChange={(value) => setOrganizzeEmail(value)}
+                    placeholder="seu-email@example.com"
+                    fullWidth
+                  />
+                </div>
+
+                <div>
+                  <BFInput
+                    label="API Key do Organizze"
+                    type="password"
+                    value={organizzeApiKey}
+                    onChange={(value) => setOrganizzeApiKey(value)}
+                    placeholder={workspace.organizzeConfig?.hasApiKey ? '••••••••••••' : 'Sua API key'}
+                    fullWidth
+                  />
+                  {workspace.organizzeConfig?.hasApiKey && (
+                    <p className="text-xs text-[--muted-foreground] mt-1">
+                      API key já configurada. Deixe em branco para manter a atual.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <BFInput
+                    label="Account ID"
+                    type="number"
+                    value={organizzeAccountId}
+                    onChange={(value) => setOrganizzeAccountId(value)}
+                    placeholder="9099386"
+                    fullWidth
+                  />
+                </div>
+
+                <div className="border-t border-[--border] pt-4 mt-4">
+                  <h4 className="text-sm font-medium text-[--foreground] mb-3">
+                    Mapeamento de Categorias
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <BFInput
+                        label="Field Payment"
+                        type="number"
+                        value={categoryFieldPayment}
+                        onChange={(value) => setCategoryFieldPayment(value)}
+                        placeholder="152977750"
+                        fullWidth
+                      />
+                    </div>
+
+                    <div>
+                      <BFInput
+                        label="Player Payment"
+                        type="number"
+                        value={categoryPlayerPayment}
+                        onChange={(value) => setCategoryPlayerPayment(value)}
+                        placeholder="152977751"
+                        fullWidth
+                      />
+                    </div>
+
+                    <div>
+                      <BFInput
+                        label="Player Debt"
+                        type="number"
+                        value={categoryPlayerDebt}
+                        onChange={(value) => setCategoryPlayerDebt(value)}
+                        placeholder="152977752"
+                        fullWidth
+                      />
+                    </div>
+
+                    <div>
+                      <BFInput
+                        label="General"
+                        type="number"
+                        value={categoryGeneral}
+                        onChange={(value) => setCategoryGeneral(value)}
+                        placeholder="152977753"
+                        fullWidth
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <BFButton variant="ghost" onClick={() => setSettingsDialogOpen(false)}>
+                  Cancelar
+                </BFButton>
+                <BFButton variant="primary" onClick={handleSaveOrganizzeSettings}>
+                  Salvar Configurações
+                </BFButton>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
+
+export default WorkspaceDetail;

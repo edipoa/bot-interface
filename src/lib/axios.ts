@@ -257,8 +257,8 @@ export const debtsAPI = {
   /**
    * Marca débito como pago
    */
-  markAsPaid: async (debtId: string, paidAt?: string) => {
-    const response = await api.post(`/debts/${debtId}/pay`, { paidAt });
+  markAsPaid: async (debtId: string, data?: { amount?: number; method?: string; notes?: string; category?: string }) => {
+    const response = await api.post(`/debts/${debtId}/pay`, data || {});
     return response.data;
   },
 
@@ -404,6 +404,49 @@ export const chatsAPI = {
     const response = await api.get('/chats');
     return response.data;
   },
+
+  /**
+   * Cria um novo chat
+   */
+  createChat: async (data: {
+    workspaceId: string;
+    chatId: string;
+    name?: string;
+    label?: string;
+    type?: 'group' | 'private';
+    schedule?: {
+      weekday: number;
+      time: string;
+      title: string;
+      priceCents: number;
+      pix: string;
+    };
+  }) => {
+    const response = await api.post('/chats', data);
+    return response.data;
+  },
+
+  /**
+   * Atualiza um chat
+   */
+  updateChat: async (
+    chatId: string,
+    data: {
+      name?: string;
+      label?: string;
+      status?: 'active' | 'inactive' | 'archived';
+      schedule?: {
+        weekday: number;
+        time: string;
+        title: string;
+        priceCents: number;
+        pix: string;
+      };
+    }
+  ) => {
+    const response = await api.put(`/chats/${chatId}`, data);
+    return response.data;
+  },
   /**
    * Busca chats por workspace
    */
@@ -424,6 +467,51 @@ export const workspacesAPI = {
    */
   getAllWorkspaces: async () => {
     const response = await api.get('/workspaces');
+    return response.data;
+  },
+
+  /**
+   * Busca um workspace por ID
+   */
+  getWorkspace: async (workspaceId: string) => {
+    const response = await api.get(`/workspaces/${workspaceId}`);
+    return response.data;
+  },
+
+  /**
+   * Atualiza configurações do Organizze para um workspace
+   */
+  updateOrganizzeSettings: async (
+    workspaceId: string,
+    data: {
+      email: string;
+      apiKey: string;
+      accountId: number;
+      categories: {
+        fieldPayment: number;
+        playerPayment: number;
+        playerDebt: number;
+        general: number;
+      };
+    }
+  ) => {
+    const response = await api.patch(`/workspaces/${workspaceId}/organizze`, data);
+    return response.data;
+  },
+
+  /**
+   * Busca chats de um workspace
+   */
+  getWorkspaceChats: async (workspaceId: string) => {
+    const response = await api.get(`/workspaces/${workspaceId}/chats`);
+    return response.data;
+  },
+
+  /**
+   * Busca estatísticas de um workspace
+   */
+  getWorkspaceStats: async (workspaceId: string) => {
+    const response = await api.get(`/workspaces/${workspaceId}/stats`);
     return response.data;
   },
 };
@@ -530,6 +618,19 @@ export const playersAPI = {
    */
   deletePlayer: async (playerId: string) => {
     const response = await api.delete(`/players/${playerId}`);
+    return response.data;
+  },
+
+  /**
+   * Adiciona crédito ao jogador
+   */
+  addCredit: async (playerId: string, data: {
+    workspaceId: string;
+    amountCents: number;
+    note?: string;
+    method?: string;
+  }) => {
+    const response = await api.post(`/players/${playerId}/credit`, data);
     return response.data;
   },
 };

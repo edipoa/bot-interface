@@ -58,7 +58,7 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
       <div
         className={`
           relative px-4 py-3
-          bg-white border-2 rounded-xl transition-all
+          bg-white dark:bg-gray-800 border-2 rounded-xl transition-all
           ${focused && !error ? 'border-[var(--bf-blue-primary)] shadow-lg shadow-blue-500/10' : ''}
           ${error ? 'border-destructive' : 'border-border'}
           ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}
@@ -77,7 +77,7 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
           maxLength={maxLength}
           className={`
             w-full bg-transparent outline-none resize-none
-            text-foreground placeholder:text-muted-foreground
+            text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
             ${disabled ? 'cursor-not-allowed' : ''}
           `}
           data-test={`${dataTest}-field`}

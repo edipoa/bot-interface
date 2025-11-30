@@ -159,18 +159,21 @@ export const ManagePlayers: React.FC = () => {
       value: stats.active,
       icon: <BFIcons.CheckCircle size={20} color="var(--success)" />,
       iconBgColor: 'var(--success)/10',
+      variant: 'elevated'
     },
     {
       label: 'Com Débitos',
       value: stats.withDebts,
       icon: <BFIcons.AlertCircle size={20} color="var(--warning)" />,
       iconBgColor: 'var(--warning)/10',
+      variant: 'elevated'
     },
     {
       label: 'Inativos',
       value: stats.suspended,
       icon: <BFIcons.XCircle size={20} color="var(--destructive)" />,
       iconBgColor: 'var(--destructive)/10',
+      variant: 'elevated'
     },
   ];
 

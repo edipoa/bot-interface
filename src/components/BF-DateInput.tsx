@@ -47,18 +47,18 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
   const formatISOValue = (displayDate: string): string => {
     const numbers = displayDate.replace(/\D/g, '');
     if (numbers.length !== 8) return '';
-    
+
     const day = numbers.slice(0, 2);
     const month = numbers.slice(2, 4);
     const year = numbers.slice(4, 8);
-    
+
     return `${year}-${month}-${day}`;
   };
 
   const formatDate = (input: string): string => {
     const numbers = input.replace(/\D/g, '');
     const limited = numbers.slice(0, 8);
-    
+
     if (limited.length <= 2) {
       return limited;
     } else if (limited.length <= 4) {
@@ -71,7 +71,7 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatDate(e.target.value);
     setInternalValue(formatted);
-    
+
     if (formatted.length === 10) {
       const isoDate = formatISOValue(formatted);
       if (isoDate) {
@@ -125,7 +125,7 @@ export const BFDateInput: React.FC<BFDateInputProps> = ({
           maxLength={10}
           className={`
             flex-1 bg-transparent outline-none
-            text-foreground placeholder:text-muted-foreground
+            text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
             ${disabled ? 'cursor-not-allowed' : ''}
           `}
           data-test={`${dataTest}-field`}
