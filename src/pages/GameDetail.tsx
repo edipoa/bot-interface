@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { BFButton } from '../components/BF-Button';
 import { BFBadge } from '../components/BF-Badge';
 import { BFCard } from '../components/BF-Card';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   Calendar,
   Clock,
   MapPin,
@@ -17,7 +17,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { BFInput } from '../components/BF-Input';
-import { Search, UserPlus } from 'lucide-react';
+import { BFMoneyInput } from '../components/BF-MoneyInput';
+import { Search, UserPlus, Pencil, Check, X } from 'lucide-react';
 
 interface Player {
   id: string;
@@ -75,7 +76,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   const { gameId: paramGameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const gameId = propGameId || paramGameId;
-  
+
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [gameToClose, setGameToClose] = useState<string | null>(null);
@@ -94,6 +95,8 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [selectedInviter, setSelectedInviter] = useState<any>(null);
   const [guestName, setGuestName] = useState('');
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [newPrice, setNewPrice] = useState('');
 
   useEffect(() => {
     if (gameId) {
@@ -122,7 +125,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       await gamesAPI.closeGame(gameToClose);
       toast.success('✅ Jogo fechado com sucesso!');
       setGameToClose(null);
-      fetchGameDetails(); 
+      fetchGameDetails();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao fechar jogo');
     } finally {
@@ -138,7 +141,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       await gamesAPI.removePlayerFromGame(gameId, playerToRemove.id);
       toast.success(`🗑️ ${playerToRemove.name} removido do jogo!`);
       setPlayerToRemove(null);
-      fetchGameDetails(); 
+      fetchGameDetails();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao remover jogador');
     } finally {
@@ -153,7 +156,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       setCancelingGame(true);
       await gamesAPI.deleteGame(gameToCancel);
       toast.success('🚫 Jogo cancelado com sucesso!');
-      setGameToCancel(null);      
+      setGameToCancel(null);
       navigate('/admin/games');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao cancelar jogo');
@@ -168,7 +171,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       setTogglingPayment(String(slot));
       await gamesAPI.togglePlayerPayment(gameId, slot, !currentStatus);
       toast.success(`💰 ${playerName} marcado como ${!currentStatus ? 'pago' : 'pendente'}!`);
-      fetchGameDetails(); 
+      fetchGameDetails();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao atualizar pagamento');
     } finally {
@@ -199,43 +202,73 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
 
     try {
       setAddingPlayer(true);
-      
+
       if (isGuestMode) {
         if (!selectedInviter || !guestName) {
           toast.error('Selecione quem convida e o nome do convidado');
           return;
         }
-        
+
         await gamesAPI.addPlayerToGame(
-          gameId, 
-          selectedInviter.phone, 
-          selectedInviter.name, 
+          gameId,
+          selectedInviter.phone,
+          selectedInviter.name,
           addAsGoalkeeper,
           guestName
         );
         toast.success(`✅ ${guestName} (convidado por ${selectedInviter.name}) adicionado ao jogo${addAsGoalkeeper ? ' como goleiro' : ''}!`);
       } else {
         if (!player) return;
-        
+
         await gamesAPI.addPlayerToGame(gameId, player.phone, player.name, addAsGoalkeeper);
         toast.success(`✅ ${player.name} adicionado ao jogo${addAsGoalkeeper ? ' como goleiro' : ''}!`);
       }
-      
-      await fetchGameDetails(); 
+
+      await fetchGameDetails();
       setAddPlayerDialogOpen(false);
       setSearchTerm('');
       setSearchResults([]);
-      setAddAsGoalkeeper(false);  
-      setIsGuestMode(false); 
-      setSelectedInviter(null); 
-      setGuestName(''); 
+      setAddAsGoalkeeper(false);
+      setIsGuestMode(false);
+      setSelectedInviter(null);
+      setGuestName('');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao adicionar jogador');
     } finally {
       setAddingPlayer(false);
     }
   };
-  
+
+  const handleUpdatePrice = async () => {
+    if (!gameId || !newPrice) return;
+
+    try {
+      // Remove R$, spaces, and convert comma to dot
+      const cleanedPrice = newPrice.replace(/[^\d,]/g, '').replace(',', '.');
+      const price = parseFloat(cleanedPrice);
+
+      if (isNaN(price)) {
+        toast.error('Valor inválido');
+        return;
+      }
+
+      await gamesAPI.updateGame(gameId, { pricePerPlayer: price });
+      toast.success('Valor atualizado com sucesso!');
+      setIsEditingPrice(false);
+      fetchGameDetails();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar valor');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleUpdatePrice();
+    } else if (e.key === 'Escape') {
+      setIsEditingPrice(false);
+    }
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm) {
@@ -267,9 +300,9 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
 
   const formatPhone = (phone: string): string => {
     if (!phone) return '';
-    
+
     const cleaned = phone.replace(/\D/g, '');
-    
+
     if (cleaned.length === 11) {
       return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
     } else if (cleaned.length === 10) {
@@ -279,29 +312,29 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
     } else if (cleaned.length === 12 && cleaned.startsWith('55')) {
       return `+${cleaned.slice(0, 2)} (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
     }
-    
+
     return phone;
   };
 
   const getStatusBadge = () => {
     if (!gameInfo) return null;
-    
+
     const apiToFrontendStatus: Record<string, 'scheduled' | 'completed' | 'cancelled' | 'closed'> = {
       'open': 'scheduled',
       'finished': 'completed',
       'cancelled': 'cancelled',
       'closed': 'closed',
     };
-    
+
     const frontendStatus = apiToFrontendStatus[gameInfo.status] || 'scheduled';
-    
+
     const statusMap = {
       scheduled: { variant: 'info' as const, label: 'Agendado' },
       completed: { variant: 'success' as const, label: 'Concluído' },
       cancelled: { variant: 'error' as const, label: 'Cancelado' },
       closed: { variant: 'warning' as const, label: 'Aguardando Pagamentos' },
     };
-    
+
     const config = statusMap[frontendStatus];
     return <BFBadge variant={config.variant}>{config.label}</BFBadge>;
   };
@@ -333,7 +366,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   const confirmedPlayers = [...gameInfo.players].sort((a, b) => a.slot - b.slot);
 
   const renderPlayerRow = (player: Player) => (
-    <tr 
+    <tr
       key={`${player.id}-${player.slot}`}
       className="border-b border-border hover:bg-accent/50 transition-colors"
     >
@@ -414,7 +447,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   );
 
   const renderWaitlistRow = (player: WaitlistPlayer) => (
-    <tr 
+    <tr
       key={`${player.id}-${player.position}`}
       className="border-b border-border hover:bg-accent/50 transition-colors"
     >
@@ -431,7 +464,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   );
 
   const renderOutlistRow = (player: OutlistPlayer, index: number) => (
-    <tr 
+    <tr
       key={`${player.id}-${index}`}
       className="border-b border-border hover:bg-accent/50 transition-colors"
     >
@@ -490,133 +523,217 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* COLUNA ESQUERDA: Info + Resumo Financeiro */}
         <div className="space-y-6">
-            {/* Informações Gerais */}
-            <BFCard>
-              <div className="p-6">
-                <h2 className="text-lg text-foreground mb-4">Informações do jogo</h2>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Status</span>
-                    {getStatusBadge()}
-                  </div>
+          {/* Informações Gerais */}
+          <BFCard>
+            <div className="p-6">
+              <h2 className="text-lg text-foreground mb-4">Informações do jogo</h2>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Valor por jogador</span>
-                    <span className="text-sm text-foreground">
-                      {formatMoney(gameInfo.pricePerPlayer)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Vagas</span>
-                    <span className="text-sm text-foreground">
-                      {gameInfo.currentPlayers} / {gameInfo.maxPlayers}
-                    </span>
-                  </div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+                  {getStatusBadge()}
                 </div>
-              </div>
-            </BFCard>
 
-            {/* Resumo Financeiro */}
-            <BFCard>
-              <div className="p-6">
-                <h2 className="text-lg text-foreground mb-4">Resumo financeiro</h2>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total a receber</span>
-                    <span className="text-sm text-foreground">
-                      {formatMoney(gameInfo.financialSummary.totalToReceive)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-success">Total pago</span>
-                    <span className="text-sm text-success">
-                      {formatMoney(gameInfo.financialSummary.totalPaid)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-warning">Total pendente</span>
-                    <span className="text-sm text-warning">
-                      {formatMoney(gameInfo.financialSummary.totalPending)}
-                    </span>
-                  </div>
-
-                  <div className="pt-3 border-t border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-muted-foreground">Jogadores pagos</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Valor por jogador</span>
+                  {isEditingPrice ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-32">
+                        <BFMoneyInput
+                          value={newPrice}
+                          onChange={(val) => setNewPrice(val)}
+                          label=""
+                          helperText=""
+                          showCentsPreview={false}
+                          placeholder="0,00"
+                          className="h-8 px-2 rounded-md"
+                          onKeyDown={handleKeyDown}
+                        />
+                      </div>
+                      <button
+                        onClick={handleUpdatePrice}
+                        className="p-1 hover:bg-success/10 text-success rounded transition-colors"
+                        title="Salvar"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setIsEditingPrice(false)}
+                        className="p-1 hover:bg-destructive/10 text-destructive rounded transition-colors"
+                        title="Cancelar"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
                       <span className="text-sm text-foreground">
-                        {gameInfo.financialSummary.paidCount}/{gameInfo.currentPlayers}
+                        {formatMoney(gameInfo.pricePerPlayer)}
                       </span>
+                      {gameInfo.status === 'open' && (
+                        <button
+                          onClick={() => {
+                            setNewPrice((gameInfo.pricePerPlayer / 100).toFixed(2).replace('.', ','));
+                            setIsEditingPrice(true);
+                          }}
+                          className="p-1 hover:bg-accent text-muted-foreground hover:text-foreground rounded transition-colors"
+                          title="Editar valor"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div
-                        className="bg-success h-2 rounded-full transition-all"
-                        style={{
-                          width: `${(gameInfo.financialSummary.paidCount / gameInfo.currentPlayers) * 100}%`,
-                        }}
-                      />
-                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Vagas</span>
+                  <span className="text-sm text-foreground">
+                    {gameInfo.currentPlayers} / {gameInfo.maxPlayers}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </BFCard>
+
+          {/* Resumo Financeiro */}
+          <BFCard>
+            <div className="p-6">
+              <h2 className="text-lg text-foreground mb-4">Resumo financeiro</h2>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total a receber</span>
+                  <span className="text-sm text-foreground">
+                    {formatMoney(gameInfo.financialSummary.totalToReceive)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-success">Total pago</span>
+                  <span className="text-sm text-success">
+                    {formatMoney(gameInfo.financialSummary.totalPaid)}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-warning">Total pendente</span>
+                  <span className="text-sm text-warning">
+                    {formatMoney(gameInfo.financialSummary.totalPending)}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">Jogadores pagos</span>
+                    <span className="text-sm text-foreground">
+                      {gameInfo.financialSummary.paidCount}/{gameInfo.currentPlayers}
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div
+                      className="bg-success h-2 rounded-full transition-all"
+                      style={{
+                        width: `${(gameInfo.financialSummary.paidCount / gameInfo.currentPlayers) * 100}%`,
+                      }}
+                    />
                   </div>
                 </div>
               </div>
-            </BFCard>
+            </div>
+          </BFCard>
 
-            {/* Ações Rápidas */}
-            {gameInfo.status === 'open' && (
-              <BFCard>
-                <div className="p-6">
-                  <h2 className="text-lg text-foreground mb-4">Ações rápidas</h2>
-                  
-                  <div className="space-y-2">
-                    <BFButton
-                      variant="success"
-                      fullWidth
-                      onClick={() => setGameToClose(gameInfo.id)}
-                      icon={<CheckCircle className="w-4 h-4" />}
-                      data-test="close-game-action"
-                    >
-                      Fechar jogo
-                    </BFButton>
-                    
-                    <BFButton
-                      variant="danger"
-                      fullWidth
-                      onClick={() => setGameToCancel(gameInfo.id)}
-                      icon={<XCircle className="w-4 h-4" />}
-                      data-test="cancel-game-action"
-                    >
-                      Cancelar jogo
-                    </BFButton>
-                  </div>
+          {/* Ações Rápidas */}
+          {gameInfo.status === 'open' && (
+            <BFCard>
+              <div className="p-6">
+                <h2 className="text-lg text-foreground mb-4">Ações rápidas</h2>
+
+                <div className="space-y-2">
+                  <BFButton
+                    variant="success"
+                    fullWidth
+                    onClick={() => setGameToClose(gameInfo.id)}
+                    icon={<CheckCircle className="w-4 h-4" />}
+                    data-test="close-game-action"
+                  >
+                    Fechar jogo
+                  </BFButton>
+
+                  <BFButton
+                    variant="danger"
+                    fullWidth
+                    onClick={() => setGameToCancel(gameInfo.id)}
+                    icon={<XCircle className="w-4 h-4" />}
+                    data-test="cancel-game-action"
+                  >
+                    Cancelar jogo
+                  </BFButton>
                 </div>
-              </BFCard>
-            )}
-          </div>
+              </div>
+            </BFCard>
+          )}
+        </div>
 
-          {/* COLUNA DIREITA: Listas */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Lista de Jogadores */}
+        {/* COLUNA DIREITA: Listas */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Lista de Jogadores */}
+          <BFCard>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg text-foreground">
+                  Jogadores confirmados ({confirmedPlayers.length})
+                </h2>
+                {gameInfo.status === 'open' && gameInfo.currentPlayers < gameInfo.maxPlayers && (
+                  <BFButton
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setAddPlayerDialogOpen(true)}
+                    icon={<UserPlus className="w-4 h-4" />}
+                    data-test="add-player-button"
+                  >
+                    Adicionar Jogador
+                  </BFButton>
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-3 text-left text-sm text-muted-foreground">#</th>
+                      <th className="px-4 py-3 text-left text-sm text-muted-foreground">Nome</th>
+                      <th className="px-4 py-3 text-left text-sm text-muted-foreground">Telefone</th>
+                      <th className="px-4 py-3 text-left text-sm text-muted-foreground">Status</th>
+                      {(gameInfo.status === 'open' || gameInfo.status === 'closed') && (
+                        <th className="px-4 py-3 text-left text-sm text-muted-foreground">Ações</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {confirmedPlayers.length > 0 ? (
+                      confirmedPlayers.map((player) => renderPlayerRow(player))
+                    ) : (
+                      <tr>
+                        <td colSpan={(gameInfo.status === 'open' || gameInfo.status === 'closed') ? 5 : 4} className="px-4 py-8 text-center text-muted-foreground">
+                          Nenhum jogador confirmado
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </BFCard>
+
+          {/* Lista de Espera */}
+          {gameInfo.waitlist.length > 0 && (
             <BFCard>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg text-foreground">
-                    Jogadores confirmados ({confirmedPlayers.length})
+                    Lista de espera ({gameInfo.waitlist.length})
                   </h2>
-                  {gameInfo.status === 'open' && gameInfo.currentPlayers < gameInfo.maxPlayers && (
-                    <BFButton
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setAddPlayerDialogOpen(true)}
-                      icon={<UserPlus className="w-4 h-4" />}
-                      data-test="add-player-button"
-                    >
-                      Adicionar Jogador
-                    </BFButton>
-                  )}
                 </div>
 
                 <div className="overflow-x-auto">
@@ -626,85 +743,46 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
                         <th className="px-4 py-3 text-left text-sm text-muted-foreground">#</th>
                         <th className="px-4 py-3 text-left text-sm text-muted-foreground">Nome</th>
                         <th className="px-4 py-3 text-left text-sm text-muted-foreground">Telefone</th>
-                        <th className="px-4 py-3 text-left text-sm text-muted-foreground">Status</th>
-                        {(gameInfo.status === 'open' || gameInfo.status === 'closed') && (
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">Ações</th>
-                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {confirmedPlayers.length > 0 ? (
-                        confirmedPlayers.map((player) => renderPlayerRow(player))
-                      ) : (
-                        <tr>
-                          <td colSpan={(gameInfo.status === 'open' || gameInfo.status === 'closed') ? 5 : 4} className="px-4 py-8 text-center text-muted-foreground">
-                            Nenhum jogador confirmado
-                          </td>
-                        </tr>
-                      )}
+                      {gameInfo.waitlist.map((player) => renderWaitlistRow(player))}
                     </tbody>
                   </table>
                 </div>
               </div>
             </BFCard>
+          )}
 
-            {/* Lista de Espera */}
-            {gameInfo.waitlist.length > 0 && (
-              <BFCard>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg text-foreground">
-                      Lista de espera ({gameInfo.waitlist.length})
-                    </h2>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">#</th>
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">Nome</th>
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">Telefone</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {gameInfo.waitlist.map((player) => renderWaitlistRow(player))}
-                      </tbody>
-                    </table>
-                  </div>
+          {/* Lista de Saída */}
+          {gameInfo.outlist.length > 0 && (
+            <BFCard>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg text-foreground">
+                    Fora do jogo ({gameInfo.outlist.length})
+                  </h2>
                 </div>
-              </BFCard>
-            )}
 
-            {/* Lista de Saída */}
-            {gameInfo.outlist.length > 0 && (
-              <BFCard>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg text-foreground">
-                      Fora do jogo ({gameInfo.outlist.length})
-                    </h2>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">#</th>
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">Nome</th>
-                          <th className="px-4 py-3 text-left text-sm text-muted-foreground">Telefone</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {gameInfo.outlist.map((player, index) => renderOutlistRow(player, index))}
-                      </tbody>
-                    </table>
-                  </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-4 py-3 text-left text-sm text-muted-foreground">#</th>
+                        <th className="px-4 py-3 text-left text-sm text-muted-foreground">Nome</th>
+                        <th className="px-4 py-3 text-left text-sm text-muted-foreground">Telefone</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gameInfo.outlist.map((player, index) => renderOutlistRow(player, index))}
+                    </tbody>
+                  </table>
                 </div>
-              </BFCard>
-            )}
-          </div>
+              </div>
+            </BFCard>
+          )}
         </div>
+      </div>
 
       {/* Dialog de confirmação de fechamento */}
       <AlertDialog open={!!gameToClose} onOpenChange={(open) => !open && setGameToClose(null)}>
@@ -791,28 +869,26 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
               {isGuestMode ? 'Adicione um convidado ao jogo' : 'Busque o jogador por nome ou número de telefone'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Toggle Jogador / Convidado */}
             <div className="flex items-center gap-2 p-2 bg-accent/50 rounded-lg">
               <button
                 onClick={() => setIsGuestMode(false)}
-                className={`flex-1 px-4 py-2 rounded-md transition-colors ${
-                  !isGuestMode 
-                    ? 'bg-primary text-white' 
-                    : 'text-foreground hover:bg-accent'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-md transition-colors ${!isGuestMode
+                  ? 'bg-primary text-white'
+                  : 'text-foreground hover:bg-accent'
+                  }`}
                 data-test="player-mode-button"
               >
                 Jogador Cadastrado
               </button>
               <button
                 onClick={() => setIsGuestMode(true)}
-                className={`flex-1 px-4 py-2 rounded-md transition-colors ${
-                  isGuestMode 
-                    ? 'bg-primary text-white' 
-                    : 'text-foreground hover:bg-accent'
-                }`}
+                className={`flex-1 px-4 py-2 rounded-md transition-colors ${isGuestMode
+                  ? 'bg-primary text-white'
+                  : 'text-foreground hover:bg-accent'
+                  }`}
                 data-test="guest-mode-button"
               >
                 Convidado
@@ -932,8 +1008,8 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
                     className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
                     data-test="goalkeeper-checkbox"
                   />
-                  <label 
-                    htmlFor="add-as-goalkeeper" 
+                  <label
+                    htmlFor="add-as-goalkeeper"
                     className="text-sm text-foreground cursor-pointer select-none"
                   >
                     🧤 Adicionar como goleiro
@@ -954,79 +1030,79 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
             ) : (
               /* Modo Jogador Cadastrado */
               <>
-            {/* Campo de busca */}
-            <div className="relative">
-              <BFInput
-                placeholder="Digite o nome ou telefone..."
-                value={searchTerm}
-                onChange={(value) => setSearchTerm(value)}
-                icon={<Search className="w-4 h-4" />}
-                fullWidth
-                data-test="search-player-input"
-              />
-            </div>
+                {/* Campo de busca */}
+                <div className="relative">
+                  <BFInput
+                    placeholder="Digite o nome ou telefone..."
+                    value={searchTerm}
+                    onChange={(value) => setSearchTerm(value)}
+                    icon={<Search className="w-4 h-4" />}
+                    fullWidth
+                    data-test="search-player-input"
+                  />
+                </div>
 
-            {/* Checkbox Goleiro */}
-            <div className="flex items-center gap-2 px-1">
-              <input
-                type="checkbox"
-                id="add-as-goalkeeper"
-                checked={addAsGoalkeeper}
-                onChange={(e) => setAddAsGoalkeeper(e.target.checked)}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
-                data-test="goalkeeper-checkbox"
-              />
-              <label 
-                htmlFor="add-as-goalkeeper" 
-                className="text-sm text-foreground cursor-pointer select-none"
-              >
-                🧤 Adicionar como goleiro
-              </label>
-            </div>
+                {/* Checkbox Goleiro */}
+                <div className="flex items-center gap-2 px-1">
+                  <input
+                    type="checkbox"
+                    id="add-as-goalkeeper"
+                    checked={addAsGoalkeeper}
+                    onChange={(e) => setAddAsGoalkeeper(e.target.checked)}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary cursor-pointer"
+                    data-test="goalkeeper-checkbox"
+                  />
+                  <label
+                    htmlFor="add-as-goalkeeper"
+                    className="text-sm text-foreground cursor-pointer select-none"
+                  >
+                    🧤 Adicionar como goleiro
+                  </label>
+                </div>
 
-            {/* Resultados da busca */}
-            <div className="border border-border rounded-lg max-h-[300px] overflow-y-auto">
-              {searchingPlayers ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-                  <p className="mt-2">Buscando jogadores...</p>
+                {/* Resultados da busca */}
+                <div className="border border-border rounded-lg max-h-[300px] overflow-y-auto">
+                  {searchingPlayers ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
+                      <p className="mt-2">Buscando jogadores...</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="divide-y divide-border">
+                      {searchResults.map((player) => (
+                        <button
+                          key={player.id}
+                          onClick={() => handleAddPlayer(player)}
+                          disabled={addingPlayer}
+                          className="w-full p-4 text-left hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          data-test={`player-result-${player.id}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium text-foreground">{player.name}</p>
+                              {player.phone && (
+                                <p className="text-xs text-muted-foreground">{formatPhone(player.phone)}</p>
+                              )}
+                            </div>
+                            {player.isGoalie && (
+                              <BFBadge variant="info" size="sm">
+                                🧤 Goleiro
+                              </BFBadge>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : searchTerm.length >= 2 ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <p>Nenhum jogador encontrado</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground">
+                      <p>Digite pelo menos 2 caracteres para buscar</p>
+                    </div>
+                  )}
                 </div>
-              ) : searchResults.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {searchResults.map((player) => (
-                    <button
-                      key={player.id}
-                      onClick={() => handleAddPlayer(player)}
-                      disabled={addingPlayer}
-                      className="w-full p-4 text-left hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      data-test={`player-result-${player.id}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{player.name}</p>
-                          {player.phone && (
-                            <p className="text-xs text-muted-foreground">{formatPhone(player.phone)}</p>
-                          )}
-                        </div>
-                        {player.isGoalie && (
-                          <BFBadge variant="info" size="sm">
-                            🧤 Goleiro
-                          </BFBadge>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              ) : searchTerm.length >= 2 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <p>Nenhum jogador encontrado</p>
-                </div>
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  <p>Digite pelo menos 2 caracteres para buscar</p>
-                </div>
-              )}
-            </div>
               </>
             )}
           </div>

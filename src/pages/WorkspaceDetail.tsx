@@ -58,6 +58,22 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
   const [categoryPlayerPayment, setCategoryPlayerPayment] = useState('');
   const [categoryPlayerDebt, setCategoryPlayerDebt] = useState('');
   const [categoryGeneral, setCategoryGeneral] = useState('');
+  const [confirmDisableDialogOpen, setConfirmDisableDialogOpen] = useState(false);
+
+  const handleDisableOrganizze = async () => {
+    if (!workspaceId) return;
+
+    try {
+      await workspacesAPI.deleteOrganizzeSettings(workspaceId);
+      toast.success('Integração desativada com sucesso!');
+      setConfirmDisableDialogOpen(false);
+      setSettingsDialogOpen(false);
+      await fetchWorkspaceData();
+    } catch (error) {
+      console.error('Error disabling Organizze:', error);
+      toast.error('Erro ao desativar integração.');
+    }
+  };
 
   // Fetch data
   useEffect(() => {
@@ -785,16 +801,47 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
                 </div>
               </div>
 
-              <DialogFooter>
-                <BFButton variant="ghost" onClick={() => setSettingsDialogOpen(false)}>
-                  Cancelar
-                </BFButton>
-                <BFButton variant="primary" onClick={handleSaveOrganizzeSettings}>
-                  Salvar Configurações
-                </BFButton>
+              <DialogFooter className="flex justify-between sm:justify-between">
+                {workspace.organizzeConfig?.hasApiKey && (
+                  <BFButton
+                    variant="danger"
+                    onClick={() => setConfirmDisableDialogOpen(true)}
+                  >
+                    Desativar Integração
+                  </BFButton>
+                )}
+                <div className="flex gap-2">
+                  <BFButton variant="secondary" onClick={() => setSettingsDialogOpen(false)}>
+                    Cancelar
+                  </BFButton>
+                  <BFButton variant="primary" onClick={handleSaveOrganizzeSettings}>
+                    Salvar Configurações
+                  </BFButton>
+                </div>
               </DialogFooter>
             </TabsContent>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDisableDialogOpen} onOpenChange={setConfirmDisableDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desativar Integração</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja desativar a integração com o Organizze?
+              Todas as configurações e mapeamentos de categorias serão removidos permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <BFButton variant="secondary" onClick={() => setConfirmDisableDialogOpen(false)}>
+              Cancelar
+            </BFButton>
+            <BFButton variant="danger" onClick={handleDisableOrganizze}>
+              Sim, desativar
+            </BFButton>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

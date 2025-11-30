@@ -328,7 +328,7 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
               <BFIcons.Eye size={18} color="var(--primary)" />
             </button>
             <button
-              className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer"
+              className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Cancelar Jogo"
               onClick={(e) => {
                 e.stopPropagation();
@@ -340,7 +340,7 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
               <BFIcons.XCircle size={18} color="var(--destructive)" />
             </button>
             <button
-              className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer"
+              className="p-2 hover:bg-[--accent] rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Fechar Jogo"
               onClick={(e) => {
                 e.stopPropagation();

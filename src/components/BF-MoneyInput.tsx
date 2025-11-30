@@ -10,6 +10,8 @@ interface BFMoneyInputProps {
   helperText?: string;
   placeholder?: string;
   showCentsPreview?: boolean;
+  className?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   'data-test'?: string;
 }
 
@@ -22,6 +24,8 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
   helperText = 'Aceita: 10,00 | 10.00 | R$10 | 1000c',
   placeholder = '10,00',
   showCentsPreview = true,
+  className = '',
+  onKeyDown,
   'data-test': dataTest = 'bf-money-input',
 }) => {
   const [focused, setFocused] = useState(false);
@@ -88,6 +92,7 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
           ${focused && !error ? 'border-[var(--bf-blue-primary)] shadow-lg shadow-blue-500/10' : ''}
           ${error ? 'border-destructive' : 'border-border'}
           ${disabled ? 'opacity-50 cursor-not-allowed bg-muted' : ''}
+          ${className}
         `}
       >
         {/* Ícone */}
@@ -107,6 +112,7 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
           onChange={handleChange}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          onKeyDown={onKeyDown}
           disabled={disabled}
           placeholder={placeholder}
           className={`

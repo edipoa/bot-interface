@@ -1,17 +1,5 @@
-/**
- * AddCredit Page
- * 
- * Tela para adicionar crédito ao usuário dentro de um workspace
- * Baseada no comando /addCredit <slug> <amount>
- * 
- * Layout em 2 colunas:
- * - Esquerda: Formulário completo
- * - Direita: Preview da operação
- */
-
 import React, { useState, useEffect } from 'react';
 import { BFInput } from '../components/BF-Input';
-import { BFPhoneInput } from '../components/BF-PhoneInput';
 import { BFButton } from '../components/BF-Button';
 import { BFSelect } from '../components/BF-Select';
 import { BFMoneyInput } from '../components/BF-MoneyInput';
@@ -21,78 +9,105 @@ import { BFWhatsAppPreview } from '../components/BF-WhatsAppPreview';
 import {
   ArrowLeft,
   Save,
-  CheckCircle,
-  User,
-  Building2,
   DollarSign,
-  CreditCard,
-  AlertCircle
+  FileText,
+  User,
+  Search
 } from 'lucide-react';
 import { workspacesAPI, playersAPI } from '../lib/axios';
 
-// Tipos
 interface CreditForm {
-  phone: string;
-  workspaceSlug: string;
   workspaceId: string;
+  playerId: string;
   amount: string;
   amountCents: number;
-  paymentMethod: string;
   note: string;
-}
-
-interface UserInfo {
-  id: string;
-  name: string;
-  phone: string;
-  found: boolean;
+  method: string;
 }
 
 interface WorkspaceInfo {
   id: string;
   name: string;
   slug: string;
-  found: boolean;
+}
+
+interface PlayerInfo {
+  id: string;
+  name: string;
+  phone: string;
 }
 
 interface AddCreditProps {
   onBack?: () => void;
 }
 
-// Opções de método de pagamento
-const paymentMethodOptions = [
+const paymentMethods = [
   { value: 'pix', label: 'PIX' },
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'cartao', label: 'Cartão' },
+  { value: 'cash', label: 'Dinheiro' },
+  { value: 'transfer', label: 'Transferência' },
+  { value: 'credit_card', label: 'Cartão de Crédito' },
+  { value: 'debit_card', label: 'Cartão de Débito' },
+  { value: 'other', label: 'Outro' },
 ];
 
 export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
-  // Estados do formulário
+  // Estado do formulário
   const [formData, setFormData] = useState<CreditForm>({
-    phone: '',
-    workspaceSlug: '',
     workspaceId: '',
+    playerId: '',
     amount: '',
     amountCents: 0,
-    paymentMethod: 'pix',
-    note: 'Crédito adicionado via painel',
+    note: '',
+    method: 'pix',
   });
 
-  // Estados de validação
+  // Estados de validação e dados
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [workspaceInfo, setWorkspaceInfo] = useState<WorkspaceInfo | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
+  const [playerInfo, setPlayerInfo] = useState<PlayerInfo | null>(null);
+
+  // Estados de busca de jogador
+  const [playerSearchTerm, setPlayerSearchTerm] = useState('');
+  const [playerSearchResults, setPlayerSearchResults] = useState<any[]>([]);
+  const [searchingPlayers, setSearchingPlayers] = useState(false);
 
   // Estados de UI
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [checkingUser, setCheckingUser] = useState(false);
-  const [checkingWorkspace, setCheckingWorkspace] = useState(false);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+
+  // Carregar workspaces ao montar
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        setLoadingWorkspaces(true);
+        const response = await workspacesAPI.getAllWorkspaces();
+
+        // Handle both array and object response formats
+        const workspacesData = Array.isArray(response) ? response : (response.workspaces || []);
+
+        setWorkspaces(workspacesData.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          slug: w.slug
+        })));
+
+        // Selecionar o primeiro se houver apenas um
+        if (workspacesData.length === 1) {
+          updateField('workspaceId', workspacesData[0].id);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar workspaces:', error);
+      } finally {
+        setLoadingWorkspaces(false);
+      }
+    };
+    fetchWorkspaces();
+  }, []);
 
   // Atualiza campo
   const updateField = (field: keyof CreditForm, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Limpa erro do campo
     setErrors((prev) => {
       const newErrors = { ...prev };
       delete newErrors[field];
@@ -100,268 +115,113 @@ export const AddCredit: React.FC<AddCreditProps> = ({ onBack }) => {
     });
   };
 
-  // Busca usuário por telefone
+  // Busca Jogador
   useEffect(() => {
-    if (formData.phone.length >= 10) {
-      setCheckingUser(true);
-
-      const checkUser = async () => {
+    const timer = setTimeout(async () => {
+      if (playerSearchTerm.length >= 2) {
+        setSearchingPlayers(true);
         try {
-          // Remove formatação do telefone para busca
-          const cleanPhone = formData.phone.replace(/\D/g, '');
-          const response = await playersAPI.getPlayers({ search: cleanPhone });
-
-          if (response.players.length > 0) {
-            const player = response.players[0];
-            setUserInfo({
-              id: player.id,
-              name: player.name,
-              phone: player.phone,
-              found: true,
-            });
-            setErrors((prev) => {
-              const newErrors = { ...prev };
-              delete newErrors.phone;
-              return newErrors;
-            });
-          } else {
-            setUserInfo({
-              id: '',
-              name: '',
-              phone: formData.phone,
-              found: false,
-            });
-            setErrors((prev) => ({
-              ...prev,
-              phone: 'Seu número não está cadastrado. Peça a um admin para cadastrar.',
-            }));
-          }
+          const response = await playersAPI.searchPlayers(playerSearchTerm);
+          setPlayerSearchResults(response.players || []);
         } catch (error) {
-          console.error('Erro ao buscar usuário:', error);
-          setErrors((prev) => ({
-            ...prev,
-            phone: 'Erro ao buscar usuário.',
-          }));
+          console.error('Erro ao buscar jogadores:', error);
         } finally {
-          setCheckingUser(false);
+          setSearchingPlayers(false);
         }
-      };
+      } else {
+        setPlayerSearchResults([]);
+      }
+    }, 300);
 
-      const timeoutId = setTimeout(checkUser, 800);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setUserInfo(null);
-    }
-  }, [formData.phone]);
+    return () => clearTimeout(timer);
+  }, [playerSearchTerm]);
 
-  // Busca workspace por slug
-  useEffect(() => {
-    if (formData.workspaceSlug.length >= 3) {
-      setCheckingWorkspace(true);
+  const handlePlayerSelect = (player: any) => {
+    setPlayerInfo({
+      id: player.id,
+      name: player.name,
+      phone: player.phone
+    });
+    updateField('playerId', player.id);
+    setPlayerSearchTerm('');
+    setPlayerSearchResults([]);
+  };
 
-      const checkWorkspace = async () => {
-        try {
-          const response = await workspacesAPI.getAllWorkspaces();
-          const workspaces = response.workspaces || [];
-          const workspace = workspaces.find((w: any) => w.slug === formData.workspaceSlug.toLowerCase());
-
-          if (workspace) {
-            setWorkspaceInfo({
-              id: workspace.id,
-              name: workspace.name,
-              slug: workspace.slug,
-              found: true,
-            });
-            updateField('workspaceId', workspace.id);
-            setErrors((prev) => {
-              const newErrors = { ...prev };
-              delete newErrors.workspaceSlug;
-              return newErrors;
-            });
-          } else {
-            setWorkspaceInfo({
-              id: '',
-              name: '',
-              slug: formData.workspaceSlug,
-              found: false,
-            });
-            updateField('workspaceId', '');
-            setErrors((prev) => ({
-              ...prev,
-              workspaceSlug: `Workspace "${formData.workspaceSlug}" não encontrado.`,
-            }));
-          }
-        } catch (error) {
-          console.error('Erro ao buscar workspace:', error);
-          setErrors((prev) => ({
-            ...prev,
-            workspaceSlug: 'Erro ao buscar workspace.',
-          }));
-        } finally {
-          setCheckingWorkspace(false);
-        }
-      };
-
-      const timeoutId = setTimeout(checkWorkspace, 600);
-      return () => clearTimeout(timeoutId);
-    } else {
-      setWorkspaceInfo(null);
-      updateField('workspaceId', '');
-    }
-  }, [formData.workspaceSlug]);
-
-  // Atualiza valor monetário
   const handleAmountChange = (value: string, cents: number) => {
     updateField('amount', value);
     updateField('amountCents', cents);
   };
 
-  // Validações
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.phone) {
-      newErrors.phone = 'Telefone é obrigatório';
-    } else if (!userInfo?.found) {
-      newErrors.phone = 'Usuário não encontrado';
+    if (!formData.workspaceId) {
+      newErrors.workspaceId = 'Workspace é obrigatório';
     }
 
-    if (!formData.workspaceSlug) {
-      newErrors.workspaceSlug = 'Workspace é obrigatório';
-    } else if (!workspaceInfo?.found) {
-      newErrors.workspaceSlug = 'Workspace não encontrado';
+    if (!formData.playerId) {
+      newErrors.playerSearch = 'Selecione um jogador';
     }
 
     if (!formData.amount || formData.amountCents <= 0) {
       newErrors.amount = 'Valor inválido';
     }
 
-    if (!formData.note.trim()) {
-      newErrors.note = 'Observação é obrigatória';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Salvar
   const handleSave = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setLoading(true);
     setSuccess(false);
 
     try {
-      await playersAPI.addCredit(userInfo!.id, {
-        workspaceId: workspaceInfo!.id,
+      await playersAPI.addCredit(formData.playerId, {
+        workspaceId: formData.workspaceId,
         amountCents: formData.amountCents,
         note: formData.note,
-        method: formData.paymentMethod,
+        method: formData.method,
+        category: 'player-payment',
       });
 
       setLoading(false);
       setSuccess(true);
+      setTimeout(() => setSuccess(false), 5000);
 
-      // Limpar formulário
+      // Reset parcial
       setFormData(prev => ({
         ...prev,
         amount: '',
         amountCents: 0,
-        note: 'Crédito adicionado via painel',
+        note: '',
+        method: 'pix',
       }));
 
-      // Esconde mensagem de sucesso após 5s
-      setTimeout(() => setSuccess(false), 5000);
+      setPlayerInfo(null);
+      updateField('playerId', '');
     } catch (error) {
       console.error('Erro ao adicionar crédito:', error);
       setLoading(false);
-      // Adicionar tratamento de erro visual aqui se necessário
     }
   };
 
-  // Formata valor para exibição
   const formatMoney = (cents: number): string => {
     return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
   };
 
-  // Preview do resumo
-  const renderSummaryPreview = () => {
-    const hasAllData = userInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
-
-    if (!hasAllData) {
-      return (
-        <div className="p-6 bg-muted rounded-xl border-2 border-border">
-          <p className="text-sm text-muted-foreground text-center">
-            Preencha usuário, workspace e valor para ver o preview
-          </p>
-        </div>
-      );
+  const formatPhone = (phone: string): string => {
+    if (!phone) return '';
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
     }
-
-    return (
-      <div className="p-6 bg-card rounded-xl border-2 border-[var(--bf-green-primary)] shadow-md">
-        <div className="flex items-center gap-2 mb-4">
-          <CheckCircle className="w-5 h-5 text-[var(--bf-green-primary)]" />
-          <h3 className="text-lg text-foreground">Resumo do crédito</h3>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs text-muted-foreground">Workspace</p>
-            <p className="text-sm text-foreground">
-              {workspaceInfo?.name} <span className="text-muted-foreground">({workspaceInfo?.slug})</span>
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Usuário</p>
-            <p className="text-sm text-foreground">{userInfo?.name}</p>
-            <p className="text-xs text-muted-foreground">{userInfo?.phone}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Valor</p>
-            <p className="text-2xl text-[var(--bf-green-primary)]">{formatMoney(formData.amountCents)}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Método</p>
-            <p className="text-sm text-foreground">{paymentMethodOptions.find(opt => opt.value === formData.paymentMethod)?.label}</p>
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Observação</p>
-            <p className="text-sm text-foreground">{formData.note}</p>
-          </div>
-        </div>
-      </div>
-    );
+    return phone;
   };
 
-  // Preview da mensagem do bot
-  const renderBotPreview = () => {
-    const hasAllData = userInfo?.found && workspaceInfo?.found && formData.amountCents > 0;
-
-    if (!hasAllData) {
-      return null;
-    }
-
-    const content = `✅ Crédito adicionado com sucesso!
-
-Usuário: ${userInfo?.name}
-Valor: ${formatMoney(formData.amountCents)}
-Método: ${paymentMethodOptions.find(opt => opt.value === formData.paymentMethod)?.label}`;
-
-    return (
-      <BFWhatsAppPreview
-        title="Simulação de mensagem do bot"
-        content={content}
-        variant="success"
-        icon={<CheckCircle className="w-5 h-5" />}
-      />
-    );
+  const getSelectedWorkspaceName = () => {
+    return workspaces.find(w => w.id === formData.workspaceId)?.name || '';
   };
 
   return (
@@ -371,226 +231,219 @@ Método: ${paymentMethodOptions.find(opt => opt.value === formData.paymentMethod
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-4">
             {onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                data-test="back-button"
-              >
+              <button onClick={onBack} className="p-2 hover:bg-accent rounded-lg">
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
             <div>
-              <h1 className="text-2xl text-foreground mb-1">
-                Adicionar crédito ao usuário
-              </h1>
+              <h1 className="text-2xl text-foreground mb-1">Adicionar Crédito</h1>
               <p className="text-sm text-muted-foreground">
-                Registre créditos no saldo do usuário dentro de um workspace
+                Adicione saldo positivo para um jogador
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mensagem de sucesso */}
       {success && (
         <div className="max-w-7xl mx-auto px-6 pt-6">
           <BFAlertMessage
             variant="success"
             title="Crédito adicionado!"
-            message={`Crédito de ${formatMoney(formData.amountCents)} adicionado com sucesso para ${userInfo?.name}!`}
+            message={`Crédito de ${formatMoney(formData.amountCents)} adicionado com sucesso.`}
             onClose={() => setSuccess(false)}
           />
         </div>
       )}
 
-      {/* Layout em 2 colunas */}
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* COLUNA ESQUERDA: Formulário */}
           <div className="space-y-6">
-            {/* Seção: Selecionar usuário */}
+
+            {/* Card Jogador */}
             <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <User className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Selecionar usuário</h2>
+                <h2 className="text-lg text-foreground">Informações do Jogador</h2>
               </div>
 
-              {/* Telefone */}
+              {/* Workspace */}
               <div>
-                <BFPhoneInput
-                  value={formData.phone}
-                  onChange={(value) => updateField('phone', value)}
-                  disabled={loading}
-                  data-test="phone-input"
+                <BFSelect
+                  label="Workspace"
+                  value={formData.workspaceId}
+                  onChange={(value) => updateField('workspaceId', value)}
+                  options={workspaces.map(w => ({ value: w.id, label: w.name }))}
+                  disabled={loading || loadingWorkspaces}
+                  placeholder="Selecione o workspace"
+                  error={errors.workspaceId}
                 />
+              </div>
 
-                {/* Status do usuário */}
-                {checkingUser && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
-                    Buscando usuário...
-                  </div>
-                )}
+              {/* Busca Jogador */}
+              {!playerInfo ? (
+                <div className="relative">
+                  <BFInput
+                    label="Buscar Jogador"
+                    value={playerSearchTerm}
+                    onChange={(value) => setPlayerSearchTerm(value)}
+                    placeholder="Nome ou telefone..."
+                    icon={<Search className="w-4 h-4" />}
+                    error={errors.playerSearch}
+                  />
 
-                {userInfo?.found && (
-                  <div className="mt-2 flex items-center gap-2 p-3 bg-green-50 border-2 border-green-200 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[var(--bf-green-primary)]" />
-                    <div>
-                      <p className="text-sm text-foreground">Usuário encontrado</p>
-                      <p className="text-xs text-muted-foreground">{userInfo.name}</p>
+                  {/* Resultados da busca */}
+                  {(searchingPlayers || playerSearchResults.length > 0) && (
+                    <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {searchingPlayers ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent mr-2" />
+                          Buscando...
+                        </div>
+                      ) : (
+                        playerSearchResults.map((player) => (
+                          <button
+                            key={player.id}
+                            onClick={() => handlePlayerSelect(player)}
+                            className="w-full p-3 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
+                          >
+                            <p className="font-medium text-foreground">{player.name}</p>
+                            {player.phone && (
+                              <p className="text-xs text-muted-foreground">{formatPhone(player.phone)}</p>
+                            )}
+                          </button>
+                        ))
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {userInfo && !userInfo.found && (
-                  <div className="mt-2 flex items-center gap-2 p-3 bg-red-50 border-2 border-red-200 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-destructive" />
-                    <p className="text-sm text-destructive">Usuário não cadastrado</p>
+                  {playerSearchTerm.length >= 2 && !searchingPlayers && playerSearchResults.length === 0 && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      Nenhum jogador encontrado.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-accent/50 rounded-lg border border-border">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{playerInfo.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatPhone(playerInfo.phone)}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setPlayerInfo(null);
+                        updateField('playerId', '');
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Alterar
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* Seção: Workspace */}
+            {/* Card Valores */}
             <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Workspace</h2>
+                <DollarSign className="w-5 h-5 text-[var(--bf-blue-primary)]" />
+                <h2 className="text-lg text-foreground">Valores e Detalhes</h2>
               </div>
 
-              {/* Workspace Slug */}
-              <div>
-                <BFInput
-                  label="Workspace (slug)"
-                  value={formData.workspaceSlug}
-                  onChange={(value) => updateField('workspaceSlug', value)}
-                  error={errors.workspaceSlug}
-                  disabled={loading}
-                  placeholder="arena, campo-do-viana, pelada-terça"
-                  helperText="Digite o identificador do workspace"
-                  data-test="workspace-slug-input"
-                />
-
-                {/* Status do workspace */}
-                {checkingWorkspace && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <div className="w-4 h-4 border-2 border-[var(--bf-blue-primary)] border-t-transparent rounded-full animate-spin" />
-                    Buscando workspace...
-                  </div>
-                )}
-
-                {workspaceInfo?.found && (
-                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-[var(--bf-blue-primary)]" />
-                    <span className="text-sm text-foreground">{workspaceInfo.name}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Seção: Valor do crédito */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <DollarSign className="w-5 h-5 text-[var(--bf-green-primary)]" />
-                <h2 className="text-lg text-foreground">Valor do crédito</h2>
-              </div>
-
-              {/* Amount */}
               <BFMoneyInput
-                label="Valor"
+                label="Valor do Crédito"
                 value={formData.amount}
                 onChange={handleAmountChange}
                 error={errors.amount}
                 disabled={loading}
-                placeholder="10,00"
-                helperText="Aceita: 10,00 | 10.00 | R$10 | 1000c"
+                placeholder="150,00"
                 showCentsPreview
-                data-test="amount-input"
               />
 
-              {/* Payment Method */}
               <BFSelect
-                label="Método de pagamento"
-                value={formData.paymentMethod}
-                onChange={(value) => updateField('paymentMethod', value)}
-                options={paymentMethodOptions}
+                label="Método de Pagamento"
+                value={formData.method}
+                onChange={(value) => updateField('method', value)}
+                options={paymentMethods}
                 disabled={loading}
-                data-test="payment-method-select"
               />
-            </div>
 
-            {/* Seção: Detalhes */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <CreditCard className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Detalhes</h2>
-              </div>
-
-              {/* Note */}
               <BFTextarea
-                label="Observação"
+                label="Nota / Descrição (Opcional)"
                 value={formData.note}
                 onChange={(value) => updateField('note', value)}
-                error={errors.note}
-                disabled={loading}
-                placeholder="Crédito adicionado via painel"
-                rows={3}
-                helperText="Descrição do crédito (será visível para o usuário)"
-                data-test="note-textarea"
+                rows={2}
+                placeholder="Ex: Pagamento adiantado"
               />
             </div>
 
-            {/* Ações */}
-            <div className="flex items-center gap-3">
-              <BFButton
-                variant="primary"
-                onClick={handleSave}
-                disabled={loading || !userInfo?.found || !workspaceInfo?.found}
-                loading={loading}
-                icon={<Save className="w-4 h-4" />}
-                data-test="save-button"
-              >
-                {loading ? 'Adicionando...' : 'Adicionar crédito'}
-              </BFButton>
-
-              {onBack && (
-                <BFButton
-                  variant="outline"
-                  onClick={onBack}
-                  disabled={loading}
-                  data-test="cancel-button"
-                >
-                  Cancelar
-                </BFButton>
-              )}
-            </div>
+            <BFButton
+              variant="primary"
+              onClick={handleSave}
+              disabled={loading || !formData.workspaceId || !playerInfo}
+              loading={loading}
+              icon={<Save className="w-4 h-4" />}
+              className="w-full"
+            >
+              Adicionar Crédito
+            </BFButton>
           </div>
 
           {/* COLUNA DIREITA: Preview */}
           <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
             <div className="bg-card rounded-xl border-2 border-border p-6">
               <h2 className="text-lg text-foreground mb-4 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-[var(--bf-green-primary)]" />
-                Preview da operação
+                <FileText className="w-5 h-5 text-[var(--bf-blue-primary)]" />
+                Resumo
               </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Visualize os detalhes antes de confirmar
-              </p>
 
-              <div className="space-y-4">
-                {renderSummaryPreview()}
-                {renderBotPreview()}
-              </div>
+              {(!formData.workspaceId || !playerInfo) ? (
+                <div className="p-8 text-center text-muted-foreground border-2 border-dashed rounded-lg">
+                  <p>Preencha as informações principais para visualizar o resumo.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-muted rounded-lg space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Workspace</span>
+                      <span className="text-sm font-medium">{getSelectedWorkspaceName()}</span>
+                    </div>
 
-              {/* Info adicional */}
-              <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-                <h4 className="text-sm text-foreground mb-2">💡 Dica</h4>
-                <p className="text-xs text-muted-foreground">
-                  O crédito será adicionado imediatamente ao saldo do usuário no workspace
-                  selecionado. Esta operação não pode ser desfeita, mas pode ser ajustada
-                  posteriormente através do histórico financeiro.
-                </p>
-              </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Jogador</span>
+                      <span className="text-sm font-medium">{playerInfo?.name}</span>
+                    </div>
+
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Método</span>
+                      <span className="text-sm font-medium">
+                        {paymentMethods.find(m => m.value === formData.method)?.label}
+                      </span>
+                    </div>
+
+                    <div className="border-t border-border my-2 pt-2 flex justify-between items-center">
+                      <span className="text-sm font-bold">Total</span>
+                      <span className="text-xl font-bold text-[var(--bf-blue-primary)]">
+                        {formatMoney(formData.amountCents)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {formData.note && (
+                    <div className="text-xs text-muted-foreground italic">
+                      Nota: "{formData.note}"
+                    </div>
+                  )}
+
+                  <BFWhatsAppPreview
+                    title="Simulação (Bot)"
+                    content={`✅ Crédito adicionado: ${formatMoney(formData.amountCents)}\n${formData.note || 'Crédito adicionado'}`}
+                    variant="success"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

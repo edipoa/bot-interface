@@ -319,6 +319,14 @@ export const gamesAPI = {
   },
 
   /**
+   * Atualiza um jogo existente
+   */
+  updateGame: async (gameId: string, data: { pricePerPlayer?: number }) => {
+    const response = await api.put(`/games/${gameId}`, data);
+    return response.data;
+  },
+
+  /**
    * Cancela/deleta um jogo
    */
   deleteGame: async (gameId: string) => {
@@ -500,6 +508,14 @@ export const workspacesAPI = {
   },
 
   /**
+   * Remove configurações do Organizze de um workspace
+   */
+  deleteOrganizzeSettings: async (workspaceId: string) => {
+    const response = await api.delete(`/workspaces/${workspaceId}/organizze`);
+    return response.data;
+  },
+
+  /**
    * Busca chats de um workspace
    */
   getWorkspaceChats: async (workspaceId: string) => {
@@ -629,6 +645,7 @@ export const playersAPI = {
     amountCents: number;
     note?: string;
     method?: string;
+    category?: string;
   }) => {
     const response = await api.post(`/players/${playerId}/credit`, data);
     return response.data;

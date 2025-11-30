@@ -12,7 +12,7 @@ export const UserProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     isGoalkeeper: user?.isGoalkeeper || false,
@@ -23,16 +23,21 @@ export const UserProfile: React.FC = () => {
       setLoading(true);
       setError('');
       setSuccess('');
-      
-      const response = await playersAPI.updatePlayer(formData.name, formData.isGoalkeeper);
-      
+
+      if (!user?.id) throw new Error('Usuário não identificado');
+
+      const response = await playersAPI.updatePlayer(user.id, {
+        name: formData.name,
+        isGoalie: formData.isGoalkeeper
+      });
+
       const updatedUserData = response.data || response;
       updateUser({
         ...user,
         name: updatedUserData.name || formData.name,
         isGoalkeeper: updatedUserData.isGoalkeeper ?? formData.isGoalkeeper,
       });
-      
+
       setSuccess('Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (error: any) {
@@ -64,7 +69,7 @@ export const UserProfile: React.FC = () => {
               Gerencie suas informações pessoais
             </p>
           </div>
-          
+
           {!isEditing && (
             <BFButton
               variant="primary"
@@ -89,7 +94,7 @@ export const UserProfile: React.FC = () => {
               <h4 className="text-green-700 dark:text-green-400 font-semibold text-sm mb-1">Tudo certo!</h4>
               <p className="text-green-600 dark:text-green-300 text-sm">{success}</p>
             </div>
-            <button 
+            <button
               onClick={() => setSuccess('')}
               className="text-green-500 hover:text-green-700 dark:hover:text-green-300 transition-colors"
             >
@@ -108,7 +113,7 @@ export const UserProfile: React.FC = () => {
               <h4 className="text-red-700 dark:text-red-400 font-semibold text-sm mb-1">Ops! Algo deu errado</h4>
               <p className="text-red-600 dark:text-red-300 text-sm">{error}</p>
             </div>
-            <button 
+            <button
               onClick={() => setError('')}
               className="text-red-500 hover:text-red-700 dark:hover:text-red-300 transition-colors"
             >
@@ -129,7 +134,7 @@ export const UserProfile: React.FC = () => {
                 Informações Pessoais
               </h3>
             </div>
-            
+
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-[--foreground] mb-2">
@@ -160,8 +165,23 @@ export const UserProfile: React.FC = () => {
                   <div className="px-4 py-3 bg-[--muted]/20 rounded-lg border border-[--border]/50 flex items-center gap-3">
                     <BFIcons.Phone size={16} className="text-[--muted-foreground]" />
                     <p className="text-[--foreground] flex-1">
-                      {user?.phone 
-                        ? user.phone.replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 ($2) $3-$4')
+                      {user?.phone
+                        ? (() => {
+                          const clean = user.phone.replace(/\D/g, '');
+                          if (clean.length === 13) {
+                            return clean.replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 ($2) $3-$4');
+                          }
+                          if (clean.length === 12) {
+                            return clean.replace(/^(\d{2})(\d{2})(\d{4})(\d{4})$/, '+$1 ($2) $3-$4');
+                          }
+                          if (clean.length === 11) {
+                            return clean.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+                          }
+                          if (clean.length === 10) {
+                            return clean.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+                          }
+                          return user.phone;
+                        })()
                         : 'Não informado'}
                     </p>
                     <BFIcons.Lock size={14} className="text-[--muted-foreground]" />
@@ -183,12 +203,12 @@ export const UserProfile: React.FC = () => {
                 Preferências de Jogo
               </h3>
             </div>
-            
+
             <div className="space-y-4">
               <div className={`
                 p-5 rounded-lg border transition-all duration-200
-                ${isEditing 
-                  ? 'bg-[--accent]/30 border-[--border] hover:border-[--primary]/50 hover:shadow-sm' 
+                ${isEditing
+                  ? 'bg-[--accent]/30 border-[--border] hover:border-[--primary]/50 hover:shadow-sm'
                   : 'bg-[--muted]/10 border-[--border]/50'
                 }
                 ${!isEditing && 'opacity-75'}
@@ -215,7 +235,7 @@ export const UserProfile: React.FC = () => {
                 </label>
               </div>
             </div>
-          </div>         
+          </div>
 
           {/* Action Buttons */}
           {isEditing && (
