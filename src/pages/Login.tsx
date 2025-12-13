@@ -64,11 +64,17 @@ export const Login: React.FC = () => {
     setLoading(true);
     try {
       let numbers = phone.replace(/\D/g, '');
-      
+
+      // Smart normalization: only remove mobile '9' if DDD doesn't start with '9'
       if (numbers.length === 11 && numbers.charAt(2) === '9') {
-        numbers = numbers.slice(0, 2) + numbers.slice(3);
+        const ddd = numbers.substring(0, 2);
+        // Only remove the '9' if DDD doesn't start with '9' (e.g., DDD 11, 21, 85)
+        // Keep the '9' for DDDs like 49, 91, 92, etc.
+        if (!ddd.startsWith('9')) {
+          numbers = numbers.slice(0, 2) + numbers.slice(3);
+        }
       }
-      
+
       const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
       await authAPI.requestOTP(phoneWithCountryCode);
       setStep('otp');
@@ -90,21 +96,21 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      // Remove formatação
       let numbers = phone.replace(/\D/g, '');
-      
+
       if (numbers.length === 11 && numbers.charAt(2) === '9') {
-        numbers = numbers.slice(0, 2) + numbers.slice(3);
+        const ddd = numbers.substring(0, 2);
+        if (!ddd.startsWith('9')) {
+          numbers = numbers.slice(0, 2) + numbers.slice(3);
+        }
       }
-      
+
       const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
       const response = await authAPI.verifyOTP(phoneWithCountryCode, otp);
-      console.log('Verify OTP response:', response);
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const savedToken = localStorage.getItem('accessToken');
-      console.log('Token saved in localStorage:', savedToken ? 'Yes' : 'No');
 
       if (!savedToken) {
         setError('Erro ao salvar credenciais. Tente novamente.');
@@ -113,7 +119,6 @@ export const Login: React.FC = () => {
       }
 
       const userRole = response.user?.role || 'user';
-      console.log('User role:', userRole);
 
       if (userRole === 'admin') {
         navigate('/admin/dashboard');
@@ -152,11 +157,17 @@ export const Login: React.FC = () => {
 
     try {
       let numbers = phone.replace(/\D/g, '');
-      
+
+      // Smart normalization: only remove mobile '9' if DDD doesn't start with '9'
       if (numbers.length === 11 && numbers.charAt(2) === '9') {
-        numbers = numbers.slice(0, 2) + numbers.slice(3);
+        const ddd = numbers.substring(0, 2);
+        // Only remove the '9' if DDD doesn't start with '9' (e.g., DDD 11, 21, 85)
+        // Keep the '9' for DDDs like 49, 91, 92, etc.
+        if (!ddd.startsWith('9')) {
+          numbers = numbers.slice(0, 2) + numbers.slice(3);
+        }
       }
-      
+
       const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
       await authAPI.requestOTP(phoneWithCountryCode);
       setStep('otp');
@@ -270,7 +281,7 @@ export const Login: React.FC = () => {
               <div className="flex items-start gap-3 p-4 bg-blue-50 border-2 border-blue-100 rounded-xl">
                 <Smartphone className="w-5 h-5 text-[var(--bf-blue-primary)] flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700">
-                  Você receberá um código de verificação via SMS
+                  Você receberá um código de verificação via WhatsApp
                 </p>
               </div>
             </div>

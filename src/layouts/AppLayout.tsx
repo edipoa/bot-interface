@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BFSidebar, BFSidebarItem } from '../components/BF-Sidebar';
 import { BFIcons } from '../components/BF-Icons';
-import { useAuth } from '../components/ProtectedRoute';
+import { useAuth } from '../hooks/useAuth';
 
 interface AppLayoutProps {
   role: 'admin' | 'user';
@@ -37,8 +37,6 @@ export default function AppLayout({ role }: AppLayoutProps) {
       setActiveItem('debts');
     } else if (currentPath.startsWith('/admin/workspaces')) {
       setActiveItem('workspaces');
-      // } else if (currentPath.startsWith('/admin/chats')) {
-      // setActiveItem('chats');
     } else if (currentPath.startsWith('/admin/my-dashboard')) {
       setActiveItem('my-dashboard');
     } else if (currentPath.startsWith('/admin/my-profile')) {
@@ -95,13 +93,6 @@ export default function AppLayout({ role }: AppLayoutProps) {
       path: '/admin/workspaces',
       roles: ['admin'],
     },
-    // {
-    //   id: 'chats',
-    //   label: 'Chats',
-    //   icon: 'MessageCircle',
-    //   path: '/admin/chats',
-    //   roles: ['admin'],
-    // },
     {
       id: 'add-credit',
       label: 'Adicionar Crédito',
@@ -223,17 +214,7 @@ export default function AppLayout({ role }: AppLayoutProps) {
               </div>
             </div>
 
-            {/* Right Side - Actions */}
             <div className="flex items-center gap-2">
-              {/* Notifications Button */}
-              <button
-                className="relative p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group cursor-pointer"
-                onClick={() => { }}
-                aria-label="Notificações"
-              >
-                <BFIcons.Bell size={20} className="text-[--muted-foreground] group-hover:text-[--foreground]" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
-              </button>
 
               {/* Settings Dropdown */}
               <div className="relative">

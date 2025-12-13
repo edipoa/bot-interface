@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../components/ProtectedRoute';
+import { useAuth } from '../hooks/useAuth';
 import { BFCard } from '../components/BF-Card';
 import { BFButton } from '../components/BF-Button';
 import { BFInput } from '../components/BF-Input';

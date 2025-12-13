@@ -51,6 +51,7 @@ export const PlayerDetail: React.FC = () => {
     cpf: '',
     status: 'active' as 'active' | 'inactive' | 'suspended',
     isGoalie: false,
+    role: 'user' as 'admin' | 'user',
   });
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export const PlayerDetail: React.FC = () => {
         cpf: playerData.cpf || '',
         status: playerData.status || 'active',
         isGoalie: playerData.isGoalie || false,
+        role: playerData.role || 'user',
       });
     } catch (error: any) {
       console.error('Erro ao carregar dados do jogador:', error);
@@ -100,6 +102,7 @@ export const PlayerDetail: React.FC = () => {
         phone: editForm.phone,
         status: editForm.status,
         isGoalie: editForm.isGoalie,
+        role: editForm.role,
       });
       toast.success('Jogador atualizado com sucesso!');
       setIsEditDialogOpen(false);
@@ -461,6 +464,22 @@ export const PlayerDetail: React.FC = () => {
                   <SelectItem value="active">Ativo</SelectItem>
                   <SelectItem value="inactive">Inativo</SelectItem>
                   <SelectItem value="suspended">Suspenso</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Função</label>
+              <Select
+                value={editForm.role}
+                onValueChange={(value: any) => setEditForm({ ...editForm, role: value })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">Jogador</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>

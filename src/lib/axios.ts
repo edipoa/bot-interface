@@ -560,6 +560,7 @@ export const playersAPI = {
     phone?: string;
     status?: 'active' | 'inactive' | 'suspended';
     isGoalie?: boolean;
+    role?: 'admin' | 'user';
   }) => {
     const response = await api.put(`/players/${playerId}`, data);
     return response.data;

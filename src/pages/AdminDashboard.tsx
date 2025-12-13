@@ -60,41 +60,55 @@ export const AdminDashboard: React.FC = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('');
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const init = async () => {
       try {
         const data = await workspacesAPI.getAllWorkspaces();
         const workspacesList = data.workspaces || data;
         setWorkspaces(workspacesList);
-        
+
         let initialWorkspace = 'all';
         let workspaceId = null;
-        
+
         if (workspacesList.length > 0) {
           const mostRecentWorkspace = workspacesList[0];
           initialWorkspace = mostRecentWorkspace.slug;
           workspaceId = mostRecentWorkspace.id;
         }
-        
+
         setSelectedWorkspace(initialWorkspace);
-        
+
         const url = workspaceId ? `/dashboard/${workspaceId}` : '/dashboard';
-        const response = await api.get(url);
+        const response = await api.get(url, { signal: abortController.signal });
         setDashboardData(response.data);
       } catch (error: any) {
-        console.error('Error loading dashboard:', error);
-        toast.error('Erro ao carregar dashboard');
+        // Don't show error toast or update loading state if request was canceled
+        if (error.code !== 'ERR_CANCELED' && error.name !== 'CanceledError') {
+          console.error('Error loading dashboard:', error);
+          toast.error('Erro ao carregar dashboard');
+          setLoading(false);
+        }
       } finally {
-        setLoading(false);
+        // Only set loading to false if request completed successfully
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
-    
+
     init();
+
+    // Cleanup function to abort pending requests
+    return () => {
+      abortController.abort();
+    };
   }, []);
 
   const fetchDashboardData = async (workspace: string) => {
     try {
       setLoading(true);
-      
+
       let url = '/dashboard';
       if (workspace !== 'all') {
         const foundWorkspace = workspaces.find((ws: any) => ws.slug === workspace);
@@ -102,7 +116,7 @@ export const AdminDashboard: React.FC = () => {
           url = `/dashboard/${foundWorkspace.id}`;
         }
       }
-      
+
       const response = await api.get(url);
       setDashboardData(response.data);
     } catch (error: any) {
@@ -341,11 +355,10 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                     )}
                     <div className="flex-1">
-                      <p className={`${
-                        (debt.category === 'general' || debt.category === 'field-payment')
-                          ? 'text-[--warning] font-semibold' 
+                      <p className={`${(debt.category === 'general' || debt.category === 'field-payment')
+                          ? 'text-[--warning] font-semibold'
                           : 'text-[--foreground]'
-                      }`}>
+                        }`}>
                         {(debt.category === 'general' || debt.category === 'field-payment') ? 'Débito Geral' : debt.playerName}
                       </p>
                       {debt.notes && (

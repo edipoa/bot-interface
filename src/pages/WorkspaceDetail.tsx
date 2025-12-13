@@ -23,7 +23,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
   const params = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
 
-  // Use prop workspaceId if provided, otherwise use params from router
   const workspaceId = propWorkspaceId || params.workspaceId;
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -32,7 +31,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Edit chat dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingChat, setEditingChat] = useState<Chat | null>(null);
   const [chatName, setChatName] = useState('');
@@ -43,13 +41,11 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
   const [schedulePrice, setSchedulePrice] = useState('');
   const [schedulePix, setSchedulePix] = useState('');
 
-  // Create chat dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newChatId, setNewChatId] = useState('');
   const [newChatLabel, setNewChatLabel] = useState('');
   const [newChatType, setNewChatType] = useState<'group' | 'private'>('group');
 
-  // Settings dialog state
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [organizzeEmail, setOrganizzeEmail] = useState('');
   const [organizzeApiKey, setOrganizzeApiKey] = useState('');
@@ -75,7 +71,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
     }
   };
 
-  // Fetch data
   useEffect(() => {
     if (workspaceId) {
       fetchWorkspaceData();
@@ -95,7 +90,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
 
       setWorkspace(workspaceData);
 
-      // Populate Organizze settings if available
       if (workspaceData.organizzeConfig) {
         setOrganizzeEmail(workspaceData.organizzeConfig.email || '');
         setOrganizzeAccountId(workspaceData.organizzeConfig.accountId?.toString() || '');
@@ -105,7 +99,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
         setCategoryGeneral(workspaceData.organizzeConfig.categories?.general?.toString() || '');
       }
 
-      // Map _id to id for chats
       const mappedChats = chatsData.map((chat: any) => ({
         ...chat,
         id: chat._id || chat.id,
@@ -119,13 +112,10 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
     }
   };
 
-  // Filter chats
   const filteredChats = chats.filter(chat =>
     (chat.name?.toLowerCase() || chat.label?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (chat.chatId?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
-
-  // Open edit chat dialog
   const handleEditChat = (chat: Chat) => {
     setEditingChat(chat);
     setChatName(chat.name || chat.label || '');
@@ -148,7 +138,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
     setEditDialogOpen(true);
   };
 
-  // Save chat changes
   const handleSaveChat = async () => {
     if (!editingChat) return;
 
@@ -234,7 +223,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
         },
       });
 
-      // Reset form
       setNewChatId('');
       setNewChatLabel('');
       setNewChatType('group');
@@ -261,12 +249,6 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
     { value: '4', label: 'Quinta-feira' },
     { value: '5', label: 'Sexta-feira' },
     { value: '6', label: 'Sábado' },
-  ];
-
-  const statusOptions = [
-    { value: 'active', label: 'Ativo' },
-    { value: 'inactive', label: 'Inativo' },
-    { value: 'archived', label: 'Arquivado' },
   ];
 
   if (loading) {
@@ -299,28 +281,30 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <BFButton
-            variant="secondary"
-            icon={<BFIcons.ArrowLeft size={20} />}
-            onClick={() => onBack ? onBack() : navigate('/admin/workspaces')}
-          >
-            Voltar
-          </BFButton>
-          <div>
-            <h1 className="text-[--foreground] mb-1">{workspace.name}</h1>
-            <p className="text-[--muted-foreground] text-sm">
-              {workspace.slug} • {workspace.platform}
-            </p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <BFButton
+              variant="secondary"
+              icon={<BFIcons.ArrowLeft size={20} />}
+              onClick={() => onBack ? onBack() : navigate('/admin/workspaces')}
+            >
+              Voltar
+            </BFButton>
+            <div>
+              <h1 className="text-[--foreground] mb-1">{workspace.name}</h1>
+              <p className="text-[--muted-foreground] text-sm">
+                {workspace.slug} • {workspace.platform}
+              </p>
+            </div>
           </div>
+          <BFButton
+            variant="primary"
+            icon={<BFIcons.Settings size={20} />}
+            onClick={handleOpenSettings}
+          >
+            Configurações
+          </BFButton>
         </div>
-        <BFButton
-          variant="primary"
-          icon={<BFIcons.Settings size={20} />}
-          onClick={handleOpenSettings}
-        >
-          Configurações
-        </BFButton>
       </div>
 
       {/* Stats Cards */}
@@ -462,9 +446,9 @@ export const WorkspaceDetail: React.FC<WorkspaceDetailProps> = ({ workspaceId: p
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h3 className="text-[--foreground]">{chat.label || chat.name || 'Chat sem nome'}</h3>
-                      <BFBadge variant={chat.status === 'active' ? 'success' : 'neutral'} size="sm">
+                      {/* <BFBadge variant={chat.status === 'active' ? 'success' : 'neutral'} size="sm">
                         {chat.status === 'active' ? 'Ativo' : chat.status === 'inactive' ? 'Inativo' : 'Arquivado'}
-                      </BFBadge>
+                      </BFBadge> */}
                       {chat.label && chat.name && chat.label !== chat.name && (
                         <BFBadge variant="info" size="sm">{chat.name}</BFBadge>
                       )}

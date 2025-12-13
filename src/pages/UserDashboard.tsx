@@ -5,7 +5,7 @@ import { BFButton } from '../components/BF-Button';
 import { BFIcons } from '../components/BF-Icons';
 import { BFListView } from '../components/BFListView';
 
-import { useAuth } from '../components/ProtectedRoute';
+import { useAuth } from '../hooks/useAuth';
 import { debtsAPI, gamesAPI, ledgersAPI } from '../lib/axios';
 
 export const UserDashboard: React.FC = () => {

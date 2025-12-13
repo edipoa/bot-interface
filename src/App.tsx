@@ -13,7 +13,7 @@ import { WorkspaceDetail } from './pages/WorkspaceDetail';
 import { UserDashboard } from './pages/UserDashboard';
 import { Login } from './pages/Login';
 import './styles/globals.css';
-import { useAuth } from './components/ProtectedRoute';
+import { useAuth } from './hooks/useAuth';
 import { authAPI } from './lib/axios';
 
 type UserRole = 'admin' | 'user';

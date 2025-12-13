@@ -1,21 +1,10 @@
-/**
- * Protected Route Component
- * 
- * Componente para proteger rotas que requerem autenticação.
- * Redireciona automaticamente para /login se o usuário não estiver autenticado.
- */
-
 import React, { useEffect, useState } from 'react';
-import { authAPI, tokenService } from '../lib/axios';
+import { authAPI } from '../lib/axios';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-/**
- * Componente que envolve rotas protegidas
- * Verifica se o usuário está autenticado antes de renderizar o conteúdo
- */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -58,41 +47,4 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   return isAuthenticated ? <>{children}</> : null;
-};
-
-/**
- * Hook para acessar informações do usuário autenticado
- */
-export const useAuth = () => {
-  const [user, setUser] = useState(tokenService.getUser());
-
-  const logout = async () => {
-    await authAPI.logout();
-  };
-
-  const refreshUser = async () => {
-    try {
-      const userData = await authAPI.getMe();
-      tokenService.setUser(userData);
-      setUser(userData);
-      return userData;
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
-      return null;
-    }
-  };
-
-  const updateUser = (newUserData: any) => {
-    const updatedUser = { ...user, ...newUserData };
-    tokenService.setUser(updatedUser);
-    setUser(updatedUser);
-  };
-
-  return {
-    user,
-    logout,
-    refreshUser,
-    updateUser,
-    isAuthenticated: authAPI.isAuthenticated(),
-  };
 };
