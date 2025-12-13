@@ -11,6 +11,7 @@ import { BFListView } from '../components/BFListView';
 import type { BFListViewColumn, BFListViewStat } from '../components/BFListView';
 import { gamesAPI, chatsAPI, workspacesAPI } from '../lib/axios';
 import type { Game } from '../lib/types';
+import { formatDateWithoutTimezone } from '../lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
@@ -246,7 +247,7 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
       render: (_: any, row: Game) => (
         <div>
           <p className="text-[--foreground]">
-            {new Date(row.date).toLocaleDateString('pt-BR')}
+            {formatDateWithoutTimezone(row.date)}
           </p>
           <p className="text-[--muted-foreground]">{row.time}</p>
         </div>

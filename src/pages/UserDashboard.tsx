@@ -7,6 +7,7 @@ import { BFListView } from '../components/BFListView';
 
 import { useAuth } from '../hooks/useAuth';
 import { debtsAPI, gamesAPI, ledgersAPI } from '../lib/axios';
+import { formatDateWithoutTimezone } from '../lib/dateUtils';
 
 export const UserDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -305,7 +306,7 @@ export const UserDashboard: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm sm:text-base text-[--foreground] font-medium truncate">{game.name}</h4>
                         <p className="text-xs sm:text-sm text-[--muted-foreground]">
-                          {new Date(game.date).toLocaleDateString('pt-BR')} às {game.time}
+                          {formatDateWithoutTimezone(game.date)} às {game.time}
                         </p>
                       </div>
                     </div>
