@@ -12,6 +12,7 @@ import { AddDebit } from './pages/AddDebit';
 import { WorkspaceDetail } from './pages/WorkspaceDetail';
 import { UserDashboard } from './pages/UserDashboard';
 import { Login } from './pages/Login';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import './styles/globals.css';
 import { useAuth } from './hooks/useAuth';
 import { authAPI } from './lib/axios';
@@ -262,6 +263,9 @@ export default function App() {
         {/* Content Area */}
         <div className={selectedWorkspaceId ? '' : 'p-6'}>{renderContent()}</div>
       </main>
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }
