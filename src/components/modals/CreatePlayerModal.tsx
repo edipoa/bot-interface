@@ -1,38 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { BFInput } from './BF-Input';
-import { BFButton } from './BF-Button';
-import type { Player } from '../lib/types';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+} from '../ui/dialog';
+import { BFButton } from '../BF-Button';
+import { BFInput } from '../BF-Input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { toast } from 'sonner';
+import { playersAPI } from '../../lib/axios';
 
-const editPlayerSchema = z.object({
+const playerSchema = z.object({
     name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
     phone: z.string().regex(/^\(\d{2}\) \d{5}-\d{4}$/, 'Formato inválido: (99) 99999-9999'),
-    nick: z.string().optional(),
     position: z.enum(['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'STRIKER']).optional(),
-    status: z.enum(['active', 'inactive', 'suspended']),
-    role: z.enum(['admin', 'user']).optional(),
+    nick: z.string().optional(),
 });
 
-type EditPlayerFormData = z.infer<typeof editPlayerSchema>;
+type PlayerFormData = z.infer<typeof playerSchema>;
 
-interface EditPlayerModalProps {
-    player: Player | null;
-    isOpen: boolean;
-    onClose: () => void;
-    onSave: (updatedPlayer: Partial<Player>) => Promise<void>;
+interface CreatePlayerModalProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    workspaceId: string;
+    onSuccess?: () => void;
 }
 
-export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
-    player,
-    isOpen,
-    onClose,
-    onSave,
+export const CreatePlayerModal: React.FC<CreatePlayerModalProps> = ({
+    open,
+    onOpenChange,
+    workspaceId,
+    onSuccess
 }) => {
-    const [isSaving, setIsSaving] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const {
         handleSubmit,
@@ -41,29 +47,10 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
         watch,
         reset,
         control
-    } = useForm<EditPlayerFormData>({
-        resolver: zodResolver(editPlayerSchema),
-        defaultValues: {
-            name: '',
-            phone: '',
-            nick: '',
-            status: 'active',
-            role: 'user',
-        }
+    } = useForm<PlayerFormData>({
+        resolver: zodResolver(playerSchema),
+        defaultValues: {}
     });
-
-    useEffect(() => {
-        if (player) {
-            reset({
-                name: player.name || '',
-                phone: formatPhoneDisplay(player.phone || ''),
-                nick: player.nick || '',
-                position: player.position as any,
-                status: player.status || 'active',
-                role: ((player.role as string)?.toLowerCase() === 'admin' ? 'admin' : 'user'),
-            });
-        }
-    }, [player, reset]);
 
     const formatPhoneInput = (value: string) => {
         const digits = value.replace(/\D/g, '');
@@ -72,46 +59,41 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
         return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
     };
 
-    const formatPhoneDisplay = (phone: string) => {
-        if (!phone) return '';
-        const numbers = phone.replace(/\D/g, '');
-        const localNumber = numbers.startsWith('55') ? numbers.slice(2) : numbers;
-
-        if (localNumber.length === 11) {
-            return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 7)}-${localNumber.slice(7)}`;
-        } else if (localNumber.length === 10) {
-            return `(${localNumber.slice(0, 2)}) ${localNumber.slice(2, 6)}-${localNumber.slice(6)}`;
-        }
-        return phone;
-    };
-
-    const onSubmit = async (data: EditPlayerFormData) => {
-        if (!player) return;
-
+    const onSubmit = async (data: PlayerFormData) => {
         try {
-            setIsSaving(true);
-            await onSave({
+            setIsSubmitting(true);
+
+            // Remove formatting from phone
+            const phoneDigits = data.phone.replace(/\D/g, '');
+
+            await playersAPI.createPlayer({
                 name: data.name,
-                phone: data.phone,
+                phoneE164: phoneDigits,
+                position: data.position,
+                type: 'AVULSO', // Default to AVULSO
                 nick: data.nick,
-                status: data.status,
-                role: data.role,
+                workspaceId
             });
-            onClose();
-        } catch (error) {
-            console.error('Error saving player:', error);
+
+            toast.success('Jogador criado com sucesso!');
+            reset();
+            onOpenChange(false);
+            onSuccess?.();
+        } catch (error: any) {
+            const message = error.response?.data?.message || 'Erro ao criar jogador';
+            toast.error(message);
         } finally {
-            setIsSaving(false);
+            setIsSubmitting(false);
         }
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Editar Jogador</DialogTitle>
+                    <DialogTitle>Novo Jogador</DialogTitle>
                     <DialogDescription>
-                        Atualize as informações do jogador
+                        Cadastre um novo jogador no workspace
                     </DialogDescription>
                 </DialogHeader>
 
@@ -191,55 +173,17 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
                         </Select>
                     </div>
 
-                    {/* Status */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Status *</label>
-                        <Select
-                            value={watch('status')}
-                            onValueChange={(value: any) => setValue('status', value)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="active">Ativo</SelectItem>
-                                <SelectItem value="inactive">Inativo</SelectItem>
-                                <SelectItem value="suspended">Suspenso</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* Role */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Permissão *</label>
-                        <Select
-                            value={watch('role')}
-                            onValueChange={(value: any) => setValue('role', value)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecione a permissão" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="user">Jogador</SelectItem>
-                                <SelectItem value="admin">Administrador</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Administradores têm acesso total ao painel deste grupo.
-                        </p>
-                    </div>
-
                     <DialogFooter>
                         <BFButton
                             type="button"
                             variant="outline"
-                            onClick={onClose}
-                            disabled={isSaving}
+                            onClick={() => onOpenChange(false)}
+                            disabled={isSubmitting}
                         >
                             Cancelar
                         </BFButton>
-                        <BFButton type="submit" disabled={isSaving}>
-                            {isSaving ? 'Salvando...' : 'Salvar alterações'}
+                        <BFButton type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? 'Criando...' : 'Criar Jogador'}
                         </BFButton>
                     </DialogFooter>
                 </form>

@@ -85,11 +85,12 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
 
       const mappedGames = response.data.map((game: any) => ({
         id: game.id,
+        workspaceId: game.workspaceId,
         name: game.name,
         type: 'futebol' as const,
         location: game.location ?? 'A definir',
         date: game.date,
-        time: game.time,
+        time: new Date(game.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
         maxPlayers: game.maxPlayers,
         currentPlayers: game.currentPlayers,
         pricePerPlayer: game.pricePerPlayer / 100,
@@ -133,9 +134,12 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
   const handleDeleteGame = async () => {
     if (!gameToDelete) return;
 
+    const game = games.find(g => g.id === gameToDelete);
+    if (!game) return;
+
     try {
       setDeletingGame(true);
-      await gamesAPI.deleteGame(gameToDelete);
+      await gamesAPI.deleteGame(gameToDelete, game.workspaceId);
       toast.success('🚫 Jogo cancelado com sucesso!');
       setGameToDelete(null);
       fetchGames();
@@ -150,9 +154,12 @@ export const ManageGames: React.FC<ManageGamesProps> = ({ onSelectGame }) => {
   const handleCloseGame = async () => {
     if (!gameToClose) return;
 
+    const game = games.find(g => g.id === gameToClose);
+    if (!game) return;
+
     try {
       setClosingGame(true);
-      await gamesAPI.closeGame(gameToClose);
+      await gamesAPI.closeGame(gameToClose, game.workspaceId);
       toast.success('✅ Jogo fechado com sucesso!');
       setGameToClose(null);
       fetchGames();

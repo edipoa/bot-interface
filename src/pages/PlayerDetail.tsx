@@ -5,8 +5,8 @@ import { BFBadge } from '../components/BF-Badge';
 import { BFCard } from '../components/BF-Card';
 import { BFTable } from '../components/BF-Table';
 import { BFIcons } from '../components/BF-Icons';
-import { playersAPI, debtsAPI, tokenService } from '../lib/axios';
-import type { Player, PlayerDebt } from '../lib/types';
+import { playersAPI, tokenService } from '../lib/axios';
+import type { Player } from '../lib/types'; // Updated type import
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -18,16 +18,7 @@ import {
 } from '../components/ui/dialog';
 import { BFInput } from '../components/BF-Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle
-} from '../components/ui/alert-dialog';
+
 
 export const PlayerDetail: React.FC = () => {
   const { playerId } = useParams<{ playerId: string }>();
@@ -36,13 +27,12 @@ export const PlayerDetail: React.FC = () => {
   const isAdmin = currentUser?.role === 'admin';
 
   const [player, setPlayer] = useState<Player | null>(null);
-  const [debts, setDebts] = useState<PlayerDebt[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]); // Using any for now to match backend return
   const [loading, setLoading] = useState(true);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [debtToPay, setDebtToPay] = useState<string | null>(null);
-  const [payingDebt, setPayingDebt] = useState(false);
 
+  // Edit Form State
   const [editForm, setEditForm] = useState({
     name: '',
     nick: '',
@@ -65,13 +55,14 @@ export const PlayerDetail: React.FC = () => {
 
     try {
       setLoading(true);
-      const [playerData, debtsData] = await Promise.all([
+      const [playerData, transactionsData] = await Promise.all([
         playersAPI.getPlayerById(playerId),
-        playersAPI.getPlayerDebts(playerId)
+        playersAPI.getPlayerTransactions(playerId)
       ]);
 
       setPlayer(playerData);
-      setDebts(debtsData.debts || debtsData || []);
+      // Backend returns { ledgers: [], ... } or { transactions: [] }? Service returns { ledgers: ... }
+      setTransactions(transactionsData.ledgers || transactionsData.transactions || []);
 
       setEditForm({
         name: playerData.name || '',
@@ -105,28 +96,13 @@ export const PlayerDetail: React.FC = () => {
         role: editForm.role,
       });
       toast.success('Jogador atualizado com sucesso!');
-      setIsEditDialogOpen(false);
+      setIsEditModalOpen(false);
       fetchPlayerData();
     } catch (error: any) {
       console.error('Erro ao atualizar jogador:', error);
       toast.error('Erro ao atualizar jogador');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handlePayDebt = async (debtId: string) => {
-    try {
-      setPayingDebt(true);
-      await debtsAPI.markAsPaid(debtId);
-      toast.success('Débito pago com sucesso!');
-      setDebtToPay(null);
-      fetchPlayerData();
-    } catch (error: any) {
-      console.error('Erro ao pagar débito:', error);
-      toast.error('Erro ao pagar débito');
-    } finally {
-      setPayingDebt(false);
     }
   };
 
@@ -171,10 +147,10 @@ export const PlayerDetail: React.FC = () => {
     return <BFBadge variant={statusInfo.variant}>{statusInfo.label}</BFBadge>;
   };
 
-  const getDebtStatusBadge = (status: string) => {
-    return status === 'pago' ? (
+  const getTransactionStatusBadge = (status: string) => {
+    return status === 'COMPLETED' ? (
       <BFBadge variant="success">Pago</BFBadge>
-    ) : status === 'cancelado' ? (
+    ) : status === 'CANCELLED' ? (
       <BFBadge variant="neutral">Cancelado</BFBadge>
     ) : (
       <BFBadge variant="warning">Pendente</BFBadge>
@@ -197,7 +173,6 @@ export const PlayerDetail: React.FC = () => {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Jogador não encontrado</h2>
-          <p className="text-muted-foreground mb-4">O jogador solicitado não existe ou foi removido.</p>
           <BFButton onClick={() => navigate('/admin/players')}>
             Voltar para lista
           </BFButton>
@@ -206,60 +181,46 @@ export const PlayerDetail: React.FC = () => {
     );
   }
 
-  const debtColumns = [
+  const transactionColumns = [
     {
       key: 'createdAt',
       label: 'Data',
       sortable: true,
-      render: (_: any, debt: PlayerDebt) => formatDate(debt.createdAt),
+      render: (_: any, t: any) => formatDate(t.createdAt || t.dueDate),
     },
     {
-      key: 'note',
+      key: 'description',
       label: 'Descrição',
-      render: (_: any, debt: PlayerDebt) => (
-        <div>
-          <div className="font-medium">{debt.note}</div>
-          {debt.workspaceId && (
-            <div className="text-sm text-muted-foreground">{debt.workspaceId.name}</div>
-          )}
-        </div>
+      render: (_: any, t: any) => (
+        <div className="font-medium">{t.description || 'Sem descrição'}</div>
       ),
     },
     {
-      key: 'amountCents',
+      key: 'type',
+      label: 'Tipo',
+      render: (_: any, t: any) => (
+        <span className={t.type === 'INCOME' ? 'text-red-500' : 'text-green-500'}>
+          {t.type === 'INCOME' ? 'Cobrança' : 'Crédito'}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
       label: 'Valor',
       sortable: true,
-      render: (_: any, debt: PlayerDebt) => (
-        <span className="font-semibold">{formatCurrency(debt.amountCents / 100)}</span>
+      render: (_: any, t: any) => (
+        <span className="font-semibold">{formatCurrency(t.amount / 100)}</span>
       ),
     },
     {
       key: 'status',
       label: 'Situação',
-      render: (_: any, debt: PlayerDebt) => getDebtStatusBadge(debt.status),
-    },
-    {
-      key: 'actions',
-      label: 'Ações',
-      render: (_: any, debt: PlayerDebt) => (
-        debt.status === 'pendente' && isAdmin ? (
-          <BFButton
-            size="sm"
-            onClick={() => setDebtToPay(debt._id)}
-          >
-            Dar baixa
-          </BFButton>
-        ) : debt.status === 'pago' ? (
-          <span className="text-sm text-muted-foreground">
-            Pago em {formatDate(debt.confirmedAt || '')}
-          </span>
-        ) : null
-      ),
+      render: (_: any, t: any) => getTransactionStatusBadge(t.status),
     },
   ];
 
-  const pendingDebts = debts.filter(d => d.status === 'pendente');
-  const paidDebts = debts.filter(d => d.status === 'pago');
+  const pendingCount = transactions.filter(t => t.status === 'PENDING').length;
+  const completedCount = transactions.filter(t => t.status === 'COMPLETED').length;
 
   return (
     <div className="space-y-6">
@@ -280,7 +241,7 @@ export const PlayerDetail: React.FC = () => {
         {isAdmin && (
           <BFButton
             variant="primary"
-            onClick={() => setIsEditDialogOpen(true)}
+            onClick={() => setIsEditModalOpen(true)}
             icon={<BFIcons.Edit className="w-4 h-4" />}
             iconPosition="left"
             className="w-full sm:w-auto"
@@ -350,6 +311,9 @@ export const PlayerDetail: React.FC = () => {
             <p className={`text-3xl font-bold ${player.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(player.balance)}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              (Simulado: R$ 0,00)
+            </p>
           </div>
         </BFCard>
 
@@ -364,9 +328,9 @@ export const PlayerDetail: React.FC = () => {
 
         <BFCard>
           <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">Débitos Pendentes</p>
+            <p className="text-sm text-muted-foreground mb-2">Pendências</p>
             <p className="text-3xl font-bold text-orange-600">
-              {pendingDebts.length}
+              {pendingCount}
             </p>
           </div>
         </BFCard>
@@ -374,25 +338,25 @@ export const PlayerDetail: React.FC = () => {
 
       <BFCard>
         <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3 mb-4">
-          <h3 className="text-xl font-semibold">Lista de Débitos</h3>
+          <h3 className="text-xl font-semibold">Histórico de Transações</h3>
           <div className="text-sm text-muted-foreground">
-            Total: {debts.length} | Pendentes: {pendingDebts.length} | Pagos: {paidDebts.length}
+            Total: {transactions.length} | Pendentes: {pendingCount} | Pagos: {completedCount}
           </div>
         </div>
 
-        {debts.length === 0 ? (
+        {transactions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
-            Nenhum débito encontrado
+            Nenhuma transação encontrada
           </div>
         ) : (
           <BFTable
-            columns={debtColumns}
-            data={debts}
+            columns={transactionColumns}
+            data={transactions}
           />
         )}
       </BFCard>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Jogador</DialogTitle>
@@ -502,8 +466,8 @@ export const PlayerDetail: React.FC = () => {
 
           <DialogFooter>
             <BFButton
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
+              variant="secondary"
+              onClick={() => setIsEditModalOpen(false)}
               disabled={isSaving}
             >
               Cancelar
@@ -517,26 +481,6 @@ export const PlayerDetail: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={!!debtToPay} onOpenChange={() => setDebtToPay(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar pagamento</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja marcar este débito como pago? Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={payingDebt}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => debtToPay && handlePayDebt(debtToPay)}
-              disabled={payingDebt}
-            >
-              {payingDebt ? 'Processando...' : 'Confirmar pagamento'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };

@@ -20,7 +20,7 @@ export const BFMoneyInput: React.FC<BFMoneyInputProps> = ({
   onChange,
   error,
   disabled = false,
-  label = 'Valor',
+  label,
   helperText = 'Aceita: 10,00 | 10.00 | R$10 | 1000c',
   placeholder = '10,00',
   showCentsPreview = true,

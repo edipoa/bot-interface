@@ -6,6 +6,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  isGoalkeeper?: boolean;
 }
 
 export interface Player {
@@ -15,6 +16,7 @@ export interface Player {
   phone: string;
   cpf: string;
   nick?: string;
+  position?: 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER' | 'STRIKER';
   isGoalie?: boolean;
   status: 'active' | 'inactive' | 'suspended';
   balance: number;
@@ -40,6 +42,7 @@ export interface Game {
   status: 'scheduled' | 'completed' | 'cancelled' | 'closed';
   createdBy: string;
   createdAt: string;
+  workspaceId: string;
 }
 
 export interface Debt {
@@ -60,26 +63,21 @@ export interface Debt {
 
 export interface PlayerDebt {
   _id: string;
-  workspaceId?: {
-    _id: string;
-    name: string;
-    slug: string;
-  };
-  gameId?: {
-    _id: string;
-    chatId: string;
-  };
+  workspaceId?: string;
+  gameId?: string;
+  membershipId?: string;
   userId: string;
-  type: string;
-  method: string;
-  category: string;
-  amountCents: number;
-  note: string;
-  status: 'pendente' | 'pago' | 'cancelado';
-  confirmedAt?: string;
+  type: 'INCOME' | 'EXPENSE';
+  category: 'MEMBERSHIP' | 'GAME_FEE' | 'FIELD_RENTAL' | 'REFEREE' | 'OTHER';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  amount: number; // Em centavos
+  dueDate: string;
+  paidAt?: string;
+  description?: string;
+  method?: 'pix' | 'dinheiro' | 'transf' | 'ajuste';
+  organizzeId?: number;
   createdAt: string;
   updatedAt: string;
-  pix?: string;
 }
 
 export interface Transaction {
@@ -141,9 +139,15 @@ export interface Workspace {
     maxPlayers?: number;
     pricePerGame?: number;
     pricePerGameCents?: number;
+    // Financial Defaults
+    courtCostCents?: number;
+    refereeCostCents?: number;
+    monthlyFeeCents?: number;
+    // General
     commandsEnabled?: string[];
     pix?: string;
     title?: string;
+    logoUrl?: string;
   };
   apiKey?: string;
   organizzeConfig?: {
@@ -179,6 +183,8 @@ export interface Chat {
   schedule?: ChatSchedule;
   createdAt: string;
   updatedAt: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
 }
 
 // BBQ Types
@@ -196,7 +202,9 @@ export interface BBQParticipant {
   invitedByName?: string | null;
   isPaid: boolean;
   isGuest: boolean;
+  isFree?: boolean;
   debtId?: string;
+  transactionId?: string;
 }
 
 export interface BBQResponseDto {
@@ -204,12 +212,18 @@ export interface BBQResponseDto {
   chatId: string;
   workspaceId: string;
   status: BBQStatus;
+  description?: string;
   date: string; // ISO date string
   createdAt: string;
   closedAt?: string;
   finishedAt?: string;
   participants: BBQParticipant[];
-  valuePerPerson: number | null;
+  financials?: {
+    meatCost: number;
+    cookCost: number;
+    ticketPrice: number;
+  };
+  valuePerPerson: number | null; // Keep for legacy compatibility if needed, or deprecate
   participantCount: number;
 }
 

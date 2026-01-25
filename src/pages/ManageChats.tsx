@@ -1,529 +1,275 @@
+
 import React, { useState, useEffect } from 'react';
-import { BFInput } from '../components/BF-Input';
-import { BFButton } from '../components/BF-Button';
-import { BFSelect } from '../components/BF-Select';
-import { BFTimeInput } from '../components/BF-TimeInput';
-import { BFWhatsAppPreview } from '../components/BF-WhatsAppPreview';
-import { BFAlertMessage } from '../components/BF-AlertMessage';
-import { 
-  ArrowLeft, 
-  Save, 
-  CheckCircle, 
-  Calendar,
-  Smartphone,
-  Building2,
-  MessageSquare
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import {
+  MessageSquare,
+  Plus,
+  RefreshCw,
+  Settings,
+  CheckCircle
 } from 'lucide-react';
 
-interface ChatScheduleForm {
-  // /bind fields
-  workspaceSlug: string;
-  chatId: string;
-  chatName: string;
-  weekday: number;
-  time: string;
-  
-  // /schedule fields
-  title: string;
-  price: string;
-  priceCents: number;
-  pix: string;
-  
-  // settings
-  useWorkspaceDefaults: boolean;
-}
+import { BFButton } from '../components/BF-Button';
+import { BFCard } from '../components/BF-Card';
+import { BFBadge } from '../components/BF-Badge';
+import { BFInput } from '../components/BF-Input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { chatsAPI } from '../lib/axios';
+import type { Chat } from '../lib/types';
 
-interface ManageChatsProps {
-  mode?: 'create' | 'edit';
-  chatId?: string;
-  onBack?: () => void;
-}
+import { Switch } from '../components/ui/switch';
 
-// Opções de dias da semana
-const weekdayOptions = [
-  { value: 0, label: '0 - Domingo' },
-  { value: 1, label: '1 - Segunda-feira' },
-  { value: 2, label: '2 - Terça-feira' },
-  { value: 3, label: '3 - Quarta-feira' },
-  { value: 4, label: '4 - Quinta-feira' },
-  { value: 5, label: '5 - Sexta-feira' },
-  { value: 6, label: '6 - Sábado' },
-];
+export const ManageChats: React.FC = () => {
+  const navigate = useNavigate();
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(null);
 
-const weekdayNames = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  // Bind Modal State
+  const [showBindModal, setShowBindModal] = useState(false);
+  const [bindCode, setBindCode] = useState('');
+  const [chatName, setChatName] = useState('');
+  const [chatIdInput, setChatIdInput] = useState(''); // Fallback manual ID
+  const [binding, setBinding] = useState(false);
 
-export const ManageChats: React.FC<ManageChatsProps> = ({
-  mode = 'create',
-  chatId,
-  onBack,
-}) => {
-  // Estados do formulário
-  const [formData, setFormData] = useState<ChatScheduleForm>({
-    workspaceSlug: '',
-    chatId: '',
-    chatName: '',
-    weekday: 2,
-    time: '20:30',
-    title: '⚽ CAMPO VIANA',
-    price: '14,00',
-    priceCents: 1400,
-    pix: 'seu@pix',
-    useWorkspaceDefaults: false,
-  });
-
-  // Estados de UI
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Simula carregamento de dados em modo edição
   useEffect(() => {
-    if (mode === 'edit' && chatId) {
-      // Simula fetch de dados
-      setFormData({
-        workspaceSlug: 'campo-do-viana',
-        chatId: '5511999999999@c.us',
-        chatName: 'Grupo Futebol Terça',
-        weekday: 2,
-        time: '20:30',
-        title: '⚽ CAMPO VIANA',
-        price: '14,00',
-        priceCents: 1400,
-        pix: 'fcjogasimples@gmail.com',
-        useWorkspaceDefaults: false,
-      });
+    const wsId = localStorage.getItem('workspaceId');
+    if (wsId) {
+      setCurrentWorkspaceId(wsId);
+      fetchChats(wsId);
+    } else {
+      setLoading(false);
+      toast.error('Nenhum workspace selecionado');
     }
-  }, [mode, chatId]);
+  }, []);
 
-  // Atualiza campo
-  const updateField = (field: keyof ChatScheduleForm, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // Limpa erro do campo
-    setErrors((prev) => {
-      const newErrors = { ...prev };
-      delete newErrors[field];
-      return newErrors;
-    });
+  const fetchChats = async (workspaceId: string) => {
+    try {
+      setLoading(true);
+      const data = await chatsAPI.getChatsByWorkspace(workspaceId);
+      // Ensure compatibility if API returns object with data property or array directly
+      const list = Array.isArray(data) ? data : (data.chats || []);
+      setChats(list);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao carregar chats');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Converte preço para centavos
-  const parsePriceToCents = (priceStr: string): number => {
-    // Remove tudo exceto números, vírgula e ponto
-    const cleaned = priceStr.replace(/[^\d,.]|R\$|c/gi, '').trim();
-    
-    // Se termina com 'c', já está em centavos
-    if (priceStr.toLowerCase().endsWith('c')) {
-      return parseInt(cleaned) || 0;
+  const handleToggleStatus = async (chat: Chat) => {
+    const newStatus = chat.status === 'active' ? 'inactive' : 'active';
+    try {
+      // Optimistic update
+      setChats(prev => prev.map(c => c.id === chat.id ? { ...c, status: newStatus } : c));
+
+      if (newStatus === 'active') {
+        await chatsAPI.activateChat(chat.id);
+        toast.success('Chat ativado com sucesso');
+      } else {
+        await chatsAPI.deactivateChat(chat.id);
+        toast.success('Chat desativado com sucesso');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao alterar status do chat');
+      // Revert optimistic update
+      setChats(prev => prev.map(c => c.id === chat.id ? { ...c, status: chat.status } : c));
     }
-    
-    // Converte vírgula para ponto e multiplica por 100
-    const normalized = cleaned.replace(',', '.');
-    const float = parseFloat(normalized) || 0;
-    return Math.round(float * 100);
   };
 
-  // Atualiza preço
-  const handlePriceChange = (value: string) => {
-    updateField('price', value);
-    const cents = parsePriceToCents(value);
-    updateField('priceCents', cents);
-  };
-
-  // Formata preço para exibição
-  const formatPrice = (cents: number): string => {
-    return `R$ ${(cents / 100).toFixed(2).replace('.', ',')}`;
-  };
-
-  // Validações
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.workspaceSlug) {
-      newErrors.workspaceSlug = 'Slug do workspace é obrigatório';
+  const handleBindChat = async () => {
+    if (!chatName) {
+      toast.error('Nome do grupo é obrigatório');
+      return;
     }
-
-    if (!formData.time.match(/^([0-1][0-9]|2[0-3]):([0-5][0-9])$/)) {
-      newErrors.time = 'Formato inválido. Use HH:mm';
-    }
-
-    if (formData.weekday < 0 || formData.weekday > 6) {
-      newErrors.weekday = 'Dia da semana deve ser entre 0 e 6';
-    }
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Título é obrigatório';
-    }
-
-    if (formData.priceCents <= 0) {
-      newErrors.price = 'Preço inválido';
-    }
-
-    if (!formData.pix.trim()) {
-      newErrors.pix = 'Chave PIX é obrigatória';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // Salvar
-  const handleSave = async () => {
-    if (!validateForm()) {
+    if (!bindCode && !chatIdInput) {
+      toast.error('Código ou ID do chat é obrigatório');
       return;
     }
 
-    setLoading(true);
-    setSuccess(false);
+    try {
+      setBinding(true);
+      await chatsAPI.bindChat({
+        workspaceId: currentWorkspaceId!,
+        name: chatName,
+        // If code is provided, backend handles !bind logic, else use manual chatId
+        code: bindCode,
+        chatId: chatIdInput || undefined
+      });
 
-    // Simula chamada de API
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setLoading(false);
-    setSuccess(true);
-
-    // Esconde mensagem de sucesso após 3s
-    setTimeout(() => setSuccess(false), 3000);
-  };
-
-  // Preview do /bind
-  const renderBindPreview = () => {
-    const content = `✅ Grupo vinculado!
-
-Workspace: ${formData.workspaceSlug || 'não definido'}
-Dia: ${weekdayNames[formData.weekday]} (${formData.weekday})
-Horário: ${formData.time || '20:30'}
-Pix: ${formData.pix || 'não definido'}
-Valor: ${formatPrice(formData.priceCents)}`;
-
-    return (
-      <BFWhatsAppPreview
-        title="Preview do comando /bind"
-        content={content}
-        variant="success"
-        icon={<CheckCircle className="w-5 h-5" />}
-      />
-    );
-  };
-
-  // Preview do /schedule
-  const renderSchedulePreview = () => {
-    if (!formData.title && !formData.pix && formData.priceCents === 0) {
-      return (
-        <BFWhatsAppPreview
-          title="Sem schedule configurado"
-          content={`ℹ️ Use o formulário para configurar o schedule.
-
-Exemplo:
-weekday=2 time=20:30 price=14,00 pix=seu@pix title="⚽ CAMPO VIANA"`}
-          variant="info"
-        />
-      );
+      toast.success('Grupo vinculado com sucesso!');
+      setShowBindModal(false);
+      setBindCode('');
+      setChatName('');
+      setChatIdInput('');
+      if (currentWorkspaceId) fetchChats(currentWorkspaceId);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Erro ao vincular grupo');
+    } finally {
+      setBinding(false);
     }
-
-    const content = `📅 Schedule atual
-
-Dia: ${weekdayNames[formData.weekday]} (${formData.weekday})
-Hora: ${formData.time || '20:30'}
-Título: ${formData.title || 'Sem título'}
-Preço: ${formatPrice(formData.priceCents)}
-Pix: ${formData.pix || 'não definido'}`;
-
-    return (
-      <BFWhatsAppPreview
-        title="Preview do comando /schedule"
-        content={content}
-        variant="info"
-        icon={<Calendar className="w-5 h-5" />}
-      />
-    );
   };
+
+  const handleConfigureChat = (chatId: string) => {
+    navigate(`/admin/chats/${chatId}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full bg-background" data-test="manage-chats-page">
-      {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-4">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 hover:bg-accent rounded-lg transition-colors"
-                data-test="back-button"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-            )}
-            <div>
-              <h1 className="text-2xl text-foreground mb-1">
-                {mode === 'create' ? 'Criar chat e schedule' : 'Editar chat e schedule'}
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Vincule o chat a um workspace e configure o schedule usado pelos comandos /bind e /schedule.
-              </p>
-            </div>
-          </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Gerenciar Chats</h1>
+          <p className="text-muted-foreground">Grupos de WhatsApp vinculados a este workspace</p>
         </div>
+        <BFButton
+          onClick={() => setShowBindModal(true)}
+          icon={<Plus size={16} />}
+        >
+          Vincular Novo Grupo
+        </BFButton>
       </div>
 
-      {/* Mensagem de sucesso */}
-      {success && (
-        <div className="max-w-7xl mx-auto px-6 pt-6">
-          <BFAlertMessage
-            variant="success"
-            title="Sucesso!"
-            message={mode === 'create' 
-              ? 'Chat vinculado e schedule configurado com sucesso!' 
-              : 'Alterações salvas com sucesso!'
-            }
-            onClose={() => setSuccess(false)}
-          />
+      {chats.length === 0 ? (
+        <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
+          <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-4" />
+          <h3 className="text-lg font-medium text-foreground">Nenhum grupo vinculado</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-2 mb-6">
+            Para começar, use o comando <code>!bind</code> no grupo do WhatsApp ou adicione manualmente.
+          </p>
+          <BFButton variant="outline" onClick={() => setShowBindModal(true)}>
+            Vincular Agora
+          </BFButton>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {chats.map((chat) => (
+            <BFCard key={chat.id} className="flex flex-col h-full hover:border-primary/50 transition-colors">
+              <div className="p-6 flex-1">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+                    <MessageSquare size={20} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={chat.status === 'active'}
+                      onCheckedChange={() => handleToggleStatus(chat)}
+                    />
+                    <BFBadge variant={chat.status === 'active' ? 'success' : 'neutral'}>
+                      {chat.status === 'active' ? 'Ativo' : 'Inativo'}
+                    </BFBadge>
+                  </div>
+                </div>
+
+                <h3 className="font-semibold text-lg text-foreground mb-1 line-clamp-1" title={chat.name || chat.label}>
+                  {chat.name || chat.label || 'Chat sem nome'}
+                </h3>
+                <p className="text-xs text-muted-foreground font-mono mb-4 truncate" title={chat.chatId}>
+                  {chat.chatId}
+                </p>
+
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <CheckCircle size={14} className="mr-2 text-green-500" />
+                    Bot Conectado
+                  </div>
+                  {/* Add more stats here if available */}
+                </div>
+              </div>
+
+              <div className="p-4 bg-muted/30 border-t border-border mt-auto flex justify-end gap-2">
+                <BFButton
+                  size="sm"
+                  variant="secondary"
+                  icon={<Settings size={14} />}
+                  onClick={() => handleConfigureChat(chat.id)}
+                >
+                  Configurar
+                </BFButton>
+              </div>
+            </BFCard>
+          ))}
         </div>
       )}
 
-      {/* Layout em 2 colunas */}
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* COLUNA ESQUERDA: Formulário */}
-          <div className="space-y-6">
-            {/* Seção: Vínculo do chat (/bind) */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-[var(--bf-blue-primary)]" />
-                <h2 className="text-lg text-foreground">Vínculo do chat</h2>
+      {/* Bind Modal */}
+      <Dialog open={showBindModal} onOpenChange={setShowBindModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vincular Novo Grupo</DialogTitle>
+            <DialogDescription>
+              Use o comando <code>!bind</code> no WhatsApp para gerar um código ou insira o ID manualmente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <BFInput
+              label="Nome do Grupo (Interno)"
+              placeholder="Ex: Futebol de Terça"
+              value={chatName}
+              onChange={setChatName}
+              fullWidth
+            />
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
               </div>
-
-              {/* Workspace Slug */}
-              <BFInput
-                label="Workspace (slug)"
-                value={formData.workspaceSlug}
-                onChange={(value) => updateField('workspaceSlug', value)}
-                error={errors.workspaceSlug}
-                disabled={loading}
-                placeholder="campo-do-viana"
-                helperText="Identificador do workspace usado no comando /bind"
-                data-test="workspace-slug-input"
-              />
-
-              {/* Chat Info */}
-              {mode === 'edit' && (
-                <div>
-                  <label className="block mb-2 text-sm text-foreground">
-                    Chat
-                  </label>
-                  <div className="flex items-center gap-3 px-4 h-12 bg-muted border-2 border-border rounded-xl">
-                    <MessageSquare className="w-5 h-5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground">{formData.chatName}</p>
-                      <p className="text-xs text-muted-foreground">{formData.chatId}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {mode === 'create' && (
-                <BFInput
-                  label="ID do Chat"
-                  value={formData.chatId}
-                  onChange={(value) => updateField('chatId', value)}
-                  error={errors.chatId}
-                  disabled={loading}
-                  placeholder="5511999999999@c.us"
-                  helperText="ID do chat do WhatsApp"
-                  data-test="chat-id-input"
-                />
-              )}
-
-              {/* Weekday */}
-              <BFSelect
-                label="Dia da semana"
-                value={formData.weekday}
-                onChange={(value) => updateField('weekday', value)}
-                options={weekdayOptions}
-                error={errors.weekday}
-                disabled={loading}
-                helperText="Dia padrão do jogo (usado no /bind e /schedule)"
-                data-test="weekday-select"
-              />
-
-              {/* Time */}
-              <BFTimeInput
-                label="Horário do jogo"
-                value={formData.time}
-                onChange={(value) => updateField('time', value)}
-                error={errors.time}
-                disabled={loading}
-                helperText="Horário padrão do jogo (usado no /bind e /schedule)"
-                data-test="time-input"
-              />
-            </div>
-
-            {/* Seção: Schedule do jogo (/schedule) */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-[var(--bf-green-primary)]" />
-                <h2 className="text-lg text-foreground">Schedule do jogo</h2>
-              </div>
-
-              {/* Title */}
-              <BFInput
-                label="Título do jogo"
-                value={formData.title}
-                onChange={(value) => updateField('title', value)}
-                error={errors.title}
-                disabled={loading}
-                placeholder="⚽ CAMPO VIANA"
-                helperText="Título que aparece nas mensagens do bot"
-                data-test="title-input"
-              />
-
-              {/* Price */}
-              <div>
-                <BFInput
-                  label="Preço"
-                  value={formData.price}
-                  onChange={handlePriceChange}
-                  error={errors.price}
-                  disabled={loading || formData.useWorkspaceDefaults}
-                  placeholder="14,00"
-                  helperText="Aceita: 14,00 | 14.00 | R$14 | 1400c"
-                  data-test="price-input"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Convertido: {formatPrice(formData.priceCents)} ({formData.priceCents} centavos)
-                </p>
-              </div>
-
-              {/* PIX */}
-              <BFInput
-                label="Chave PIX"
-                value={formData.pix}
-                onChange={(value) => updateField('pix', value)}
-                error={errors.pix}
-                disabled={loading || formData.useWorkspaceDefaults}
-                placeholder="seu@pix ou telefone ou chave aleatória"
-                helperText="Chave PIX para receber pagamentos"
-                data-test="pix-input"
-              />
-
-              {/* Resumo */}
-              <div className="p-4 bg-muted rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground mb-2">Resumo do schedule:</p>
-                <p className="text-sm text-foreground">
-                  <strong>Dia:</strong> {weekdayNames[formData.weekday]} ({formData.weekday}) -{' '}
-                  <strong>Hora:</strong> {formData.time} -{' '}
-                  <strong>Preço:</strong> {formatPrice(formData.priceCents)} -{' '}
-                  <strong>Pix:</strong> {formData.pix || 'não definido'}
-                </p>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Opção 1: Código</span>
               </div>
             </div>
 
-            {/* Seção: Ajustes avançados */}
-            <div className="bg-card rounded-xl border-2 border-border p-6 space-y-4">
-              <button
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <h3 className="text-sm text-foreground">Ajustes avançados</h3>
-                <span className="text-sm text-[var(--bf-blue-primary)]">
-                  {showAdvanced ? 'Ocultar' : 'Mostrar'}
-                </span>
-              </button>
+            <BFInput
+              label="Código de Vinculação"
+              placeholder="Ex: 123456"
+              value={bindCode}
+              onChange={setBindCode}
+              fullWidth
+            />
 
-              {showAdvanced && (
-                <div className="space-y-4 pt-4 border-t border-border">
-                  {/* Toggle Workspace Defaults */}
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id="use-defaults"
-                      checked={formData.useWorkspaceDefaults}
-                      onChange={(e) => updateField('useWorkspaceDefaults', e.target.checked)}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <label htmlFor="use-defaults" className="text-sm text-foreground cursor-pointer">
-                        Usar valores padrão do workspace
-                      </label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Quando ativo, os campos de preço e PIX usarão os valores definidos nas configurações
-                        do workspace. Útil quando todos os chats compartilham os mesmos valores.
-                      </p>
-                    </div>
-                  </div>
-
-                  {formData.useWorkspaceDefaults && (
-                    <div className="p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        ℹ️ Os valores de <strong>preço</strong> e <strong>PIX</strong> serão
-                        obtidos automaticamente do workspace <strong>{formData.workspaceSlug}</strong>.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Opção 2: ID Manual</span>
+              </div>
             </div>
 
-            {/* Ações */}
-            <div className="flex items-center gap-3">
-              <BFButton
-                variant="primary"
-                onClick={handleSave}
-                disabled={loading}
-                loading={loading}
-                icon={<Save className="w-4 h-4" />}
-                data-test="save-button"
-              >
-                {loading 
-                  ? 'Salvando...' 
-                  : mode === 'create' 
-                    ? 'Salvar e vincular chat' 
-                    : 'Salvar alterações'
-                }
-              </BFButton>
-
-              {onBack && (
-                <BFButton
-                  variant="outline"
-                  onClick={onBack}
-                  disabled={loading}
-                  data-test="cancel-button"
-                >
-                  Cancelar
-                </BFButton>
-              )}
-            </div>
+            <BFInput
+              label="ID do Chat (Manual)"
+              placeholder="Ex: 5511999999999@g.us"
+              value={chatIdInput}
+              onChange={setChatIdInput}
+              helperText="Apenas se não tiver o código"
+              fullWidth
+            />
           </div>
 
-          {/* COLUNA DIREITA: Preview */}
-          <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-            <div className="bg-card rounded-xl border-2 border-border p-6">
-              <h2 className="text-lg text-foreground mb-4 flex items-center gap-2">
-                <Smartphone className="w-5 h-5 text-[var(--bf-green-primary)]" />
-                Preview das mensagens
-              </h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Veja como as mensagens do bot aparecerão no WhatsApp
-              </p>
-
-              <div className="space-y-4">
-                {renderBindPreview()}
-                {renderSchedulePreview()}
-              </div>
-
-              {/* Info adicional */}
-              <div className="mt-6 p-4 bg-muted rounded-lg border border-border">
-                <h4 className="text-sm text-foreground mb-2">💡 Dica</h4>
-                <p className="text-xs text-muted-foreground">
-                  Ao alterar qualquer campo no formulário, os previews são atualizados
-                  automaticamente. Isso permite que você veja exatamente como o bot irá
-                  responder aos comandos /bind e /schedule.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+          <DialogFooter>
+            <BFButton variant="ghost" onClick={() => setShowBindModal(false)}>Cancelar</BFButton>
+            <BFButton
+              onClick={handleBindChat}
+              disabled={binding}
+              loading={binding}
+            >
+              Vincular
+            </BFButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BFButton } from '../components/BF-Button';
-import { BFInput } from '../components/BF-Input';
 import { BFBadge } from '../components/BF-Badge';
 import { BFIcons } from '../components/BF-Icons';
 import { BFListView } from '../components/BFListView';
 import type { BFListViewColumn, BFListViewStat } from '../components/BFListView';
 import { EditPlayerModal } from '../components/EditPlayerModal';
-import { playersAPI } from '../lib/axios';
+import { CreatePlayerModal } from '../components/modals/CreatePlayerModal';
+import { playersAPI, workspacesAPI } from '../lib/axios';
 import type { Player } from '../lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 
 export const ManagePlayers: React.FC = () => {
@@ -22,6 +19,7 @@ export const ManagePlayers: React.FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState<string>('');
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -47,12 +45,38 @@ export const ManagePlayers: React.FC = () => {
   }, [searchTerm]);
 
   useEffect(() => {
-    fetchPlayers();
-  }, [debouncedSearchTerm, filterStatus, pagination.page]);
+    const fetchWorkspace = async () => {
+      try {
+        console.log('[DEBUG] Fetching workspaces...');
+        const response = await workspacesAPI.getAllWorkspaces();
+        console.log('[DEBUG] Workspaces received:', response);
+        if (response.workspaces && response.workspaces.length > 0) {
+          // Get the most recent workspace
+          const mostRecent = response.workspaces.sort((a: any, b: any) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          )[0];
+          console.log('[DEBUG] Setting workspaceId:', mostRecent.id);
+          setWorkspaceId(mostRecent.id);
+        } else {
+          console.log('[DEBUG] No workspaces found!');
+        }
+      } catch (error) {
+        console.error('[DEBUG] Error fetching workspace:', error);
+      }
+    };
+    fetchWorkspace();
+  }, []);
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
+    console.log('[DEBUG] fetchPlayers called, workspaceId:', workspaceId);
+    if (!workspaceId) {
+      console.log('[DEBUG] No workspaceId, returning early');
+      return;
+    }
+
     try {
       setLoading(true);
+      console.log('[DEBUG] Calling playersAPI.getPlayers...');
       const response = await playersAPI.getPlayers({
         search: debouncedSearchTerm || undefined,
         status: filterStatus as 'active' | 'inactive' | 'all',
@@ -80,7 +104,11 @@ export const ManagePlayers: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceId, debouncedSearchTerm, filterStatus, pagination.page, pagination.limit]);
+
+  useEffect(() => {
+    fetchPlayers();
+  }, [fetchPlayers]);
 
   const handlePageChange = (newPage: number) => {
     setPagination(prev => ({ ...prev, page: newPage }));
@@ -112,6 +140,8 @@ export const ManagePlayers: React.FC = () => {
       phoneE164: updatedData.phone,
       status: updatedData.status,
       isGoalie: updatedData.isGoalie,
+      role: updatedData.role,
+      workspaceId: workspaceId,
     });
     toast.success('Jogador atualizado com sucesso!');
     setPlayerToEdit(null);
@@ -318,18 +348,13 @@ export const ManagePlayers: React.FC = () => {
         dataTest="manage-players"
       />
 
-      {/* Create Player Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Adicionar Novo Jogador</DialogTitle>
-            <DialogDescription>
-              Preencha as informações do jogador abaixo
-            </DialogDescription>
-          </DialogHeader>
-          <CreatePlayerForm onClose={() => setIsCreateDialogOpen(false)} />
-        </DialogContent>
-      </Dialog>
+      {/* Create Player Modal */}
+      <CreatePlayerModal
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        workspaceId={workspaceId}
+        onSuccess={fetchPlayers}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!playerToDelete} onOpenChange={() => setPlayerToDelete(null)}>
@@ -364,37 +389,4 @@ export const ManagePlayers: React.FC = () => {
   );
 };
 
-const CreatePlayerForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  return (
-    <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BFInput label="Nome Completo" placeholder="João Silva" fullWidth required data-test="player-name" />
-        <BFInput label="Email" type="email" placeholder="joao@email.com" fullWidth required data-test="player-email" />
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <BFInput label="Telefone" placeholder="(11) 98765-4321" fullWidth required data-test="player-phone" />
-        <BFInput label="CPF" placeholder="123.456.789-00" fullWidth data-test="player-cpf" />
-      </div>
-
-      <Select>
-        <SelectTrigger>
-          <SelectValue placeholder="Status Inicial" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="active">Ativo</SelectItem>
-          <SelectItem value="inactive">Inativo</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <div className="flex justify-end gap-3 pt-4">
-        <BFButton variant="ghost" onClick={onClose} type="button">
-          Cancelar
-        </BFButton>
-        <BFButton variant="primary" type="submit" data-test="submit-create-player">
-          Adicionar Jogador
-        </BFButton>
-      </div>
-    </form>
-  );
-};

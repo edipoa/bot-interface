@@ -26,6 +26,19 @@ export default function AppLayout({ role }: AppLayoutProps) {
     document.documentElement.classList.toggle('dark', isDark);
   }, []);
 
+  // NEW: Workspace Protection
+  const { currentWorkspace, workspaces, loading } = useAuth(); // Assuming useAuth exposes these
+  useEffect(() => {
+    if (!loading && !currentWorkspace) {
+      // If loaded and no workspace selected, force selection
+      if (workspaces && workspaces.length === 0) {
+        navigate('/no-workspace');
+      } else {
+        navigate('/select-workspace');
+      }
+    }
+  }, [currentWorkspace, loading, workspaces, navigate]);
+
   useEffect(() => {
     const currentPath = location.pathname;
 
@@ -39,6 +52,10 @@ export default function AppLayout({ role }: AppLayoutProps) {
       setActiveItem('workspaces');
     } else if (currentPath.startsWith('/admin/bbq')) {
       setActiveItem('bbq');
+    } else if (currentPath.startsWith('/admin/chats')) {
+      setActiveItem('chats');
+    } else if (currentPath.startsWith('/admin/memberships')) {
+      setActiveItem('memberships');
     } else if (currentPath.startsWith('/admin/my-dashboard')) {
       setActiveItem('my-dashboard');
     } else if (currentPath.startsWith('/admin/my-profile')) {
@@ -81,20 +98,13 @@ export default function AppLayout({ role }: AppLayoutProps) {
       path: '/admin/players',
       roles: ['admin'],
     },
-    {
-      id: 'debts',
-      label: 'Débitos',
-      icon: 'DollarSign',
-      path: '/admin/debts',
-      roles: ['admin'],
-    },
-    {
-      id: 'workspaces',
-      label: 'Workspaces',
-      icon: 'Settings',
-      path: '/admin/workspaces',
-      roles: ['admin'],
-    },
+    // {
+    //   id: 'workspaces',
+    //   label: 'Workspaces',
+    //   icon: 'Settings',
+    //   path: '/admin/workspaces',
+    //   roles: ['admin'],
+    // },
     {
       id: 'bbq',
       label: 'Churrascos',
@@ -103,19 +113,31 @@ export default function AppLayout({ role }: AppLayoutProps) {
       roles: ['admin'],
     },
     {
-      id: 'add-credit',
-      label: 'Adicionar Crédito',
-      icon: 'PlusCircle',
-      path: '/admin/add-credit',
+      id: 'chats',
+      label: 'Chats',
+      icon: 'MessageSquare',
+      path: '/admin/chats',
       roles: ['admin'],
-      separator: true,
-      sectionLabel: 'Ações Rápidas',
     },
     {
-      id: 'add-debit',
-      label: 'Adicionar Débito',
-      icon: 'MinusCircle',
-      path: '/admin/add-debit',
+      id: 'memberships',
+      label: 'Membros',
+      icon: 'CreditCard',
+      path: '/admin/memberships',
+      roles: ['admin'],
+    },
+    {
+      id: 'finance',
+      label: 'Financeiro',
+      icon: 'BarChart3',
+      path: '/admin/finance',
+      roles: ['admin'],
+    },
+    {
+      id: 'settings',
+      label: 'Configurações',
+      icon: 'Settings',
+      path: '/admin/settings',
       roles: ['admin'],
     },
     {

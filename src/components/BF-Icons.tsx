@@ -60,6 +60,8 @@ import {
   Target,
   Flame,
   UtensilsCrossed,
+  Wallet,
+  Slash,
 } from 'lucide-react';
 
 export const BFIcons = {
@@ -136,6 +138,8 @@ export const BFIcons = {
   Target,
   Flame,
   UtensilsCrossed,
+  Wallet,
+  Slash,
 };
 
 export type BFIconName = keyof typeof BFIcons;

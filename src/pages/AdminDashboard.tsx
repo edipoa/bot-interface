@@ -9,22 +9,15 @@ import { formatDateWithoutTimezone } from '../lib/dateUtils';
 import { toast } from 'sonner';
 
 interface DashboardStats {
-  totalPlayers: number;
-  activePlayers: number;
-  inactivePlayers: number;
+  totalRevenue: number;
+  totalExpenses: number;
+  netBalance: number;
+  pendingRevenue: number;
+  totalMembers: number;
+  activeMembers: number;
+  suspendedMembers: number;
   totalGames: number;
-  upcomingGames: number;
-  completedGames: number;
-  totalDebt: number;
-  totalPending: number;
-  totalOverdue: number;
-  paidThisMonth: number;
-  revenue: number;
-  revenueGrowth: number;
-  totalWorkspaces: number;
-  activeWorkspaces: number;
-  totalChats: number;
-  balance: number;
+  nextGameDate: string | null;
 }
 
 interface RecentGame {
@@ -44,6 +37,7 @@ interface RecentDebt {
   status: string;
   createdAt: string;
   notes?: string;
+  description?: string;
   category?: string;
 }
 
@@ -207,15 +201,55 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <BFCard variant="stat" padding="md" data-test="stat-players">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card: Caixa (Saldo Líquido) */}
+        <BFCard variant="elevated" padding="md" data-test="stat-balance">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-white/80 mb-1">Total de Jogadores</p>
-              <h2 className="text-white">{stats.totalPlayers}</h2>
-              <p className="text-white/70 mt-2">
-                {stats.activePlayers} ativos
+              <p className="text-[--muted-foreground] mb-1">Caixa (Saldo)</p>
+              <h2 className={stats.netBalance >= 0 ? "text-[--success]" : "text-[--destructive]"}>
+                {formatMoney(stats.netBalance)}
+              </h2>
+              <p className="text-[--muted-foreground] mt-2 text-xs">
+                Entradas: {formatMoney(stats.totalRevenue)}
               </p>
+            </div>
+            <div className={`p-3 rounded-lg ${stats.netBalance >= 0 ? 'bg-[--success]/10' : 'bg-[--destructive]/10'}`}>
+              <BFIcons.DollarSign size={24} color={stats.netBalance >= 0 ? 'var(--success)' : 'var(--destructive)'} />
+            </div>
+          </div>
+        </BFCard>
+
+        {/* Card: A Receber (Pending) */}
+        <BFCard variant="elevated" padding="md" data-test="stat-pending">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[--muted-foreground] mb-1">A Receber</p>
+              <h2 className="text-[--warning]">{formatMoney(stats.pendingRevenue)}</h2>
+              <p className="text-[--muted-foreground] mt-2 text-xs">
+                Previsão de entrada
+              </p>
+            </div>
+            <div className="bg-[--warning]/10 p-3 rounded-lg">
+              <BFIcons.Clock size={24} color="var(--warning)" />
+            </div>
+          </div>
+        </BFCard>
+
+        {/* Card: Membros */}
+        <BFCard variant="stat" padding="md" data-test="stat-members">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-white/80 mb-1">Membros</p>
+              <h2 className="text-white">{stats.totalMembers}</h2>
+              <div className="flex gap-2 mt-2">
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> {stats.activeMembers}
+                </span>
+                <span className="text-xs bg-white/20 px-2 py-0.5 rounded text-white flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> {stats.suspendedMembers}
+                </span>
+              </div>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <BFIcons.Users size={24} color="white" />
@@ -223,69 +257,18 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </BFCard>
 
+        {/* Card: Operacional (Jogos) */}
         <BFCard variant="elevated" padding="md" data-test="stat-games">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[--muted-foreground] mb-1">Jogos Agendados</p>
-              <h2 className="text-[--foreground]">{stats.upcomingGames}</h2>
-              <p className="text-[--muted-foreground] mt-2">
-                {stats.totalGames} no total
+              <p className="text-[--muted-foreground] mb-1">Jogos Realizados</p>
+              <h2 className="text-[--foreground]">{stats.totalGames}</h2>
+              <p className="text-[--muted-foreground] mt-2 text-xs">
+                Próximo: {stats.nextGameDate ? formatDate(stats.nextGameDate) : 'Nenhum'}
               </p>
             </div>
             <div className="bg-[--accent] p-3 rounded-lg">
               <BFIcons.Trophy size={24} color="var(--primary)" />
-            </div>
-          </div>
-        </BFCard>
-
-        <BFCard variant="elevated" padding="md" data-test="stat-debt">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[--muted-foreground] mb-1">Débito Total</p>
-              <h2 className="text-[--warning]">
-                {formatMoney(stats.totalDebt)}
-              </h2>
-              <p className="text-[--muted-foreground] mt-2">
-                {stats.totalPending} pendentes
-              </p>
-            </div>
-            <div className="bg-[--warning]/10 p-3 rounded-lg">
-              <BFIcons.AlertCircle size={24} color="var(--warning)" />
-            </div>
-          </div>
-        </BFCard>
-
-        <BFCard variant="elevated" padding="md" data-test="stat-revenue">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[--muted-foreground] mb-1">Receita do Mês</p>
-              <h2 className="text-[--foreground]">
-                {formatMoney(stats.paidThisMonth)}
-              </h2>
-              <div className="flex items-center gap-1 mt-2 text-[--success]">
-                <BFIcons.TrendingUp size={16} />
-                <span>+{stats.revenueGrowth}%</span>
-              </div>
-            </div>
-            <div className="bg-[--success]/10 p-3 rounded-lg">
-              <BFIcons.DollarSign size={24} color="var(--success)" />
-            </div>
-          </div>
-        </BFCard>
-
-        <BFCard variant="elevated" padding="md" data-test="stat-balance">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[--muted-foreground] mb-1">Saldo</p>
-              <h2 className={stats.balance >= 0 ? "text-[--success]" : "text-[--destructive]"}>
-                {formatMoney(stats.balance)}
-              </h2>
-              <p className="text-[--muted-foreground] mt-2">
-                {stats.balance >= 0 ? 'Positivo' : 'Negativo'}
-              </p>
-            </div>
-            <div className={`p-3 rounded-lg ${stats.balance >= 0 ? 'bg-[--success]/10' : 'bg-[--destructive]/10'}`}>
-              <BFIcons.CreditCard size={24} color={stats.balance >= 0 ? 'var(--success)' : 'var(--destructive)'} />
             </div>
           </div>
         </BFCard>
@@ -362,9 +345,9 @@ export const AdminDashboard: React.FC = () => {
                         }`}>
                         {(debt.category === 'general' || debt.category === 'field-payment') ? 'Débito Geral' : debt.playerName}
                       </p>
-                      {debt.notes && (
+                      {(debt.description || debt.notes) && (
                         <p className="text-[--muted-foreground] text-xs mt-0.5 italic">
-                          {debt.notes}
+                          {debt.description || debt.notes}
                         </p>
                       )}
                       <p className="text-[--muted-foreground] text-sm">{formatDate(debt.createdAt)}</p>

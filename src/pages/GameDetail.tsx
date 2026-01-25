@@ -15,7 +15,7 @@ import { gamesAPI, playersAPI } from '../lib/axios';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { BFInput } from '../components/BF-Input';
 import { BFMoneyInput } from '../components/BF-MoneyInput';
 import { Search, UserPlus, Pencil, Check, X } from 'lucide-react';
@@ -53,6 +53,7 @@ interface FinancialSummary {
 interface GameInfo {
   id: string;
   name: string;
+  workspaceId: string;
   date: string;
   time: string;
   location: string;
@@ -118,11 +119,11 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   };
 
   const handleCloseGame = async () => {
-    if (!gameToClose) return;
+    if (!gameToClose || !gameInfo) return;
 
     try {
       setClosingGame(true);
-      await gamesAPI.closeGame(gameToClose);
+      await gamesAPI.closeGame(gameToClose, gameInfo.workspaceId);
       toast.success('✅ Jogo fechado com sucesso!');
       setGameToClose(null);
       fetchGameDetails();
@@ -150,11 +151,11 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   };
 
   const handleCancelGame = async () => {
-    if (!gameToCancel) return;
+    if (!gameToCancel || !gameInfo) return;
 
     try {
       setCancelingGame(true);
-      await gamesAPI.deleteGame(gameToCancel);
+      await gamesAPI.deleteGame(gameToCancel, gameInfo.workspaceId);
       toast.success('🚫 Jogo cancelado com sucesso!');
       setGameToCancel(null);
       navigate('/admin/games');
@@ -627,16 +628,16 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
 
                 <div className="pt-3 border-t border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-muted-foreground">Jogadores pagos</span>
+                    <span className="text-sm text-muted-foreground">Pagamentos realizados</span>
                     <span className="text-sm text-foreground">
-                      {gameInfo.financialSummary.paidCount}/{gameInfo.currentPlayers}
+                      {gameInfo.financialSummary.paidCount}/{gameInfo.financialSummary.paidCount + gameInfo.financialSummary.unpaidCount}
                     </span>
                   </div>
-                  <div className="w-full bg-secondary rounded-full h-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
-                      className="bg-success h-2 rounded-full transition-all"
+                      className="bg-green-600 h-2 rounded-full transition-all"
                       style={{
-                        width: `${(gameInfo.financialSummary.paidCount / gameInfo.currentPlayers) * 100}%`,
+                        width: `${((gameInfo.financialSummary.paidCount / (gameInfo.financialSummary.paidCount + gameInfo.financialSummary.unpaidCount)) || 0) * 100}%`,
                       }}
                     />
                   </div>
@@ -904,26 +905,65 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       </div>
 
       {/* Dialog de confirmação de fechamento */}
-      <AlertDialog open={!!gameToClose} onOpenChange={(open) => !open && setGameToClose(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fechar Jogo</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja fechar este jogo? O jogo será marcado como concluído e os débitos serão registrados para os jogadores.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={closingGame}>Voltar</AlertDialogCancel>
-            <AlertDialogAction
+      {/* Modal de Fechamento Financeiro */}
+      <Dialog open={!!gameToClose} onOpenChange={(open) => !open && setGameToClose(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fechamento Financeiro</DialogTitle>
+            <DialogDescription>
+              Confira os valores antes de encerrar o jogo
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-secondary/20 p-4 rounded-lg space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Arrecadado (Pago)</span>
+                <span className="text-base font-bold text-green-600">
+                  {formatMoney(gameInfo?.financialSummary.totalPaid || 0)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Pendente</span>
+                <span className="text-base font-bold text-yellow-600">
+                  {formatMoney(gameInfo?.financialSummary.totalPending || 0)}
+                </span>
+              </div>
+              <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
+                <span className="font-medium">Total Previsto</span>
+                <span className="font-bold">
+                  {formatMoney(gameInfo?.financialSummary.totalToReceive || 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md text-sm text-blue-800 dark:text-blue-200 flex items-start gap-2">
+              <Clock className="w-4 h-4 mt-0.5 shrink-0" />
+              <p>
+                Ao confirmar, o jogo será marcado como <strong>Concluído</strong>. Os pagamentos pendentes serão registrados como débitos na conta dos jogadores.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <BFButton
+              variant="ghost"
+              onClick={() => setGameToClose(null)}
+              disabled={closingGame}
+            >
+              Cancelar
+            </BFButton>
+            <BFButton
+              variant="success"
               onClick={handleCloseGame}
               disabled={closingGame}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              icon={closingGame ? undefined : <CheckCircle className="w-4 h-4" />}
             >
-              {closingGame ? 'Fechando...' : 'Sim, fechar jogo'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              {closingGame ? 'Fechando...' : 'Confirmar Fechamento'}
+            </BFButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de confirmação de remoção de jogador */}
       <AlertDialog open={!!playerToRemove} onOpenChange={(open) => !open && setPlayerToRemove(null)}>

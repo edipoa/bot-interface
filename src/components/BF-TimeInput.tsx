@@ -16,7 +16,7 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
   onChange,
   error,
   disabled = false,
-  label = 'Horário',
+  label,
   helperText = 'Formato HH:mm, ex.: 20:30',
   'data-test': dataTest = 'bf-time-input',
 }) => {
@@ -24,9 +24,9 @@ export const BFTimeInput: React.FC<BFTimeInputProps> = ({
 
   const formatTime = (input: string): string => {
     const numbers = input.replace(/\D/g, '');
-    
+
     const limited = numbers.slice(0, 4);
-    
+
     if (limited.length <= 2) {
       return limited;
     } else {

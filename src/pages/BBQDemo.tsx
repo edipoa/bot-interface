@@ -4,7 +4,7 @@ import { BBQCard } from '../components/BBQ-Card';
 import { BBQCreateModal } from '../components/BBQ-CreateModal';
 import { BFButton } from '../components/BF-Button';
 import { BFIcons } from '../components/BF-Icons';
-import type { BBQ } from '../lib/types';
+
 import { bbqAPI } from '../lib/axios';
 import { toast } from 'sonner';
 
@@ -30,8 +30,6 @@ export const BBQDemo: React.FC = () => {
             setLoading(true);
             const response = await bbqAPI.getAllBBQs({ page: 1, limit: 100 });
 
-            console.log('BBQ API Response:', response);
-
             // The API returns: { success: true, data: { bbqs: [...], total, page, totalPages, limit } }
             let bbqData: any[] = [];
 
@@ -46,7 +44,6 @@ export const BBQDemo: React.FC = () => {
                 bbqData = response;
             }
 
-            console.log('Extracted BBQ data:', bbqData);
             setBbqs(bbqData);
         } catch (error: any) {
             console.error('Error fetching BBQs:', error);
@@ -66,24 +63,7 @@ export const BBQDemo: React.FC = () => {
         }
     };
 
-    const handleCreateBBQ = async (newBBQ: Partial<BBQ> & { workspaceId?: string; chatId?: string }) => {
-        try {
-            await bbqAPI.createBBQ({
-                ...(newBBQ.workspaceId && { workspaceId: newBBQ.workspaceId }),
-                ...(newBBQ.chatId && { chatId: newBBQ.chatId }),
-                date: newBBQ.date || '',
-                valuePerPerson: newBBQ.valuePerPerson || 0,
-            });
 
-            toast.success('🎉 Churrasco criado com sucesso!');
-            setIsCreateModalOpen(false);
-            fetchBBQs();
-            fetchStats();
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Erro ao criar churrasco');
-            throw error;
-        }
-    };
 
     if (loading) {
         return (
@@ -203,7 +183,11 @@ export const BBQDemo: React.FC = () => {
             <BBQCreateModal
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
-                onSuccess={handleCreateBBQ}
+                onSuccess={() => {
+                    fetchBBQs();
+                    fetchStats();
+                    setIsCreateModalOpen(false);
+                }}
             />
         </div>
     );

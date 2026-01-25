@@ -26,7 +26,7 @@ export const PhoneInputBasicExample = () => {
         onChange={setPhone}
         placeholder="Digite seu telefone"
       />
-      
+
       <p className="mt-4 text-sm text-muted-foreground">
         Valor: {phone || '(vazio)'}
       </p>
@@ -44,7 +44,7 @@ export const PhoneInputWithValidationExample = () => {
 
   const handleValidate = () => {
     const numbers = phone.replace(/\D/g, '');
-    
+
     if (!phone) {
       setError('Telefone é obrigatório');
     } else if (numbers.length < 10) {
@@ -66,7 +66,7 @@ export const PhoneInputWithValidationExample = () => {
         error={error}
         autoFocus
       />
-      
+
       <BFButton
         variant="primary"
         onClick={handleValidate}
@@ -91,7 +91,7 @@ export const OTPInputBasicExample = () => {
         value={otp}
         onChange={setOtp}
       />
-      
+
       <p className="mt-4 text-sm text-muted-foreground text-center">
         Código: {otp || '(vazio)'} ({otp.length}/6)
       </p>
@@ -109,10 +109,10 @@ export const OTPInputWithLoadingExample = () => {
 
   const handleVerify = async () => {
     setLoading(true);
-    
+
     // Simula verificação
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     setLoading(false);
     alert(`Código ${otp} verificado!`);
     setOtp('');
@@ -125,7 +125,7 @@ export const OTPInputWithLoadingExample = () => {
         onChange={setOtp}
         loading={loading}
       />
-      
+
       <BFButton
         variant="primary"
         onClick={handleVerify}
@@ -224,19 +224,21 @@ export const FullLoginFlowExample = () => {
 
   const handleSendCode = async () => {
     setError('');
-    
-    
+
+
     if (!isPhoneValid()) {
       setError('Digite um número de telefone válido');
       return;
     }
 
     setLoading(true);
-    
+
     try {
       await authAPI.requestOTP(phone);
       setStep('otp');
     } catch (error: any) {
+      console.log(`error: ${error}`);
+
       setError(error.response?.data?.message || 'Erro ao enviar código. Tente novamente.');
     } finally {
       setLoading(false);
@@ -245,14 +247,14 @@ export const FullLoginFlowExample = () => {
 
   const handleVerifyCode = async () => {
     setError('');
-    
+
     if (otp.length !== 6) {
       setError('Digite o código completo');
       return;
     }
 
     setLoading(true);
-    
+
     try {
       await authAPI.verifyOTP(phone, otp);
       alert('Login realizado com sucesso!');
@@ -521,7 +523,7 @@ export const PlaygroundExample = () => {
         {/* PhoneInput Playground */}
         <div className="space-y-6">
           <h3>PhoneInput</h3>
-          
+
           <BFPhoneInput
             value={phoneValue}
             onChange={setPhoneValue}
@@ -554,7 +556,7 @@ export const PlaygroundExample = () => {
         {/* OTPInput Playground */}
         <div className="space-y-6">
           <h3>OTPInput</h3>
-          
+
           <BFOTPInput
             value={otpValue}
             onChange={setOtpValue}

@@ -1,43 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { BFCard, BFCardHeader, BFCardContent } from '../components/BF-Card';
-import { BFBadge } from '../components/BF-Badge';
-import { BFButton } from '../components/BF-Button';
+import { BFCard } from '../components/BF-Card';
 import { BFIcons } from '../components/BF-Icons';
-import { BFListView } from '../components/BFListView';
+import { BFAlertMessage } from '../components/BF-AlertMessage';
+import { GameCard } from '../components/GameCard';
 
 import { useAuth } from '../hooks/useAuth';
-import { debtsAPI, gamesAPI, ledgersAPI } from '../lib/axios';
+import { gamesAPI, transactionsAPI, membershipsAPI } from '../lib/axios';
 import { formatDateWithoutTimezone } from '../lib/dateUtils';
+import { Membership, IFinancialBalance } from '../lib/types/membership';
+import { toast } from 'sonner';
+
+// New Components
+import { SubscriptionStatusCard } from '../components/subscription/SubscriptionStatusCard';
+import { TransactionHistory } from '../components/subscription/TransactionHistory';
+import { PaymentModal } from '../components/financial/PaymentModal';
+import { ManageSubscriptionModal } from '../components/subscription/ManageSubscriptionModal';
 
 export const UserDashboard: React.FC = () => {
-  const { user, refreshUser } = useAuth();
-  const [debts, setDebts] = useState<any[]>([]);
+  const { user, currentWorkspace, refreshUser, loading: authLoading } = useAuth();
+  console.log('Current Workspace:', currentWorkspace);
+
+  const [membership, setMembership] = useState<Membership | null>(null);
+  const [balance, setBalance] = useState<IFinancialBalance>({ totalPending: 0, history: [] });
   const [games, setGames] = useState<any[]>([]);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [transactionsPagination, setTransactionsPagination] = useState({
-    page: 1,
-    totalPages: 1,
-    total: 0,
-    limit: 5
-  });
-  const [copiedDebtId, setCopiedDebtId] = useState<string | null>(null);
-
-  const handleCopyPixKey = async (debtId: string, pixKey: string) => {
-    if (!pixKey) {
-      console.error('Chave PIX não disponível');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(pixKey);
-      setCopiedDebtId(debtId);
-      setTimeout(() => setCopiedDebtId(null), 2000);
-    } catch (error) {
-      console.error('Erro ao copiar chave PIX:', error);
-    }
-  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Payment Modal State
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
 
   useEffect(() => {
     const initUser = async () => {
@@ -48,7 +40,11 @@ export const UserDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !user.id) {
+      if (authLoading) return;
+
+      if (!user || !user.id || !currentWorkspace?.id) {
+        console.log('UserDashboard: Missing dependencies, aborting fetch.');
+
         setLoading(false);
         return;
       }
@@ -56,107 +52,208 @@ export const UserDashboard: React.FC = () => {
       try {
         setLoading(true);
 
-        const debtsResponse = await debtsAPI.getMyDebts();
-        const debtsData = debtsResponse.data || debtsResponse;
-        const mappedDebts = Array.isArray(debtsData) ? debtsData.map((debt: any) => ({
-          id: debt._id,
-          amount: debt.amountCents / 100,
-          status: debt.status === 'pendente' ? 'pending' : debt.status === 'confirmado' ? 'paid' : 'overdue',
-          gameName: debt.note || 'Jogo',
-          dueDate: debt.createdAt,
-          ...debt
-        })) : [];
-        setDebts(mappedDebts);
+        try {
+          const membershipResponse = await membershipsAPI.getMyMembership(currentWorkspace.id);
+          const membershipData = membershipResponse.data || membershipResponse.membership;
 
-        const gamesResponse = await gamesAPI.getMyOpenGames();
+          if (membershipData) {
+            setMembership({
+              ...membershipData,
+              id: membershipData.id || membershipData._id,
+              planValue: membershipData.planValueCents ? membershipData.planValueCents / 100 : 0,
+              planValueCents: membershipData.planValueCents || 0
+            });
+          } else {
+            setMembership(null);
+          }
+        } catch (err) {
+          console.log('No membership found', err);
+        }
+
+        try {
+          const balanceData = await transactionsAPI.getMyBalance(currentWorkspace.id);
+          setBalance(balanceData);
+        } catch (err) {
+          console.error('Error fetching balance', err);
+        }
+
+        // Fetch Games - usage of getAllGames with filter as requested
+        // Note: getAllGames might need workspaceId filter if it supports it, 
+        // to avoid seeing games from other workspaces if the API isn't scoped implicitly.
+        // Assuming getAllGames is global or handles scope via session/interceptor?
+        // Actually, let's verify if getAllGames takes workspaceId.
+        // Looking at axios.ts, getAllGames takes (page, limit, status, search). 
+        // It does NOT take workspaceId explicity. But interceptor adds x-workspace-id.
+        const gamesResponse = await gamesAPI.getAllGames(1, 10, 'open');
         const gamesData = gamesResponse.data || gamesResponse;
+
         const mappedGames = Array.isArray(gamesData) ? gamesData.map((game: any) => ({
           ...game,
-          id: game.id,
-          name: game.title,
+          id: game.id || game._id,
+          name: game.title || game.name,
           status: game.status === 'open' ? 'scheduled' : game.status,
-          date: formatDateWithoutTimezone(game.date),
-          time: game.time,
-          location: 'A definir',
-          pricePerPlayer: game.priceCents / 100,
+          rawDate: game.date,
+          formattedDate: formatDateWithoutTimezone(game.date),
+          time: new Date(game.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+          location: game.location || 'A definir',
+          pricePerPlayer: game.pricePerPlayer || (game.priceCents ? game.priceCents / 100 : 0),
           currentPlayers: game.currentPlayers ?? 0,
           maxPlayers: game.maxPlayers ?? 0,
-          paid: game.playerInfo?.paid || false
+          players: game.players || [], // Store players to find self
+          isJoined: game.players?.some((p: any) => p.phone === user.phone), // Calculated field
+          paid: false
         })) : [];
         setGames(mappedGames);
-
-        const ledgersResponse = await ledgersAPI.getMyLedgers(1, 5);
-        const ledgersData = ledgersResponse.ledgers || [];
-        const mappedLedgers = Array.isArray(ledgersData) ? ledgersData.map((ledger: any) => ({
-          ...ledger,
-          id: ledger._id,
-          type: ledger.type === 'credit' ? 'payment' : 'debit',
-          description: ledger.note,
-          amount: ledger.type === 'credit' ? ledger.amountCents / 100 : -(ledger.amountCents / 100),
-          date: ledger.createdAt,
-          status: ledger.status
-        })) : [];
-        setTransactions(mappedLedgers);
-        setTransactionsPagination({
-          page: ledgersResponse.page || 1,
-          totalPages: ledgersResponse.totalPages || 1,
-          total: ledgersResponse.total || 0,
-          limit: ledgersResponse.limit || 5
-        });
 
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError('Erro ao carregar dados');
-        setDebts([]);
-        setGames([]);
-        setTransactions([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [user]);
+  }, [user, currentWorkspace, authLoading]);
 
-  const pendingDebts = debts.filter(f => f.type === 'debit');
-  const totalDebt = pendingDebts.filter(f => f.status === 'pendente' && f.type === 'debit').reduce((sum, d) => sum + d.amount, 0);
+  const handlePayTransaction = (transactionId: string) => {
+    setSelectedTransactionId(transactionId);
+    setPaymentModalOpen(true);
+  };
 
-  const upcomingGames = games;
+  const handlePaymentSuccess = async () => {
+    // Refresh balance and membership
+    if (currentWorkspace?.id) {
+      try {
+        const balanceData = await transactionsAPI.getMyBalance(currentWorkspace.id);
+        setBalance(balanceData);
 
-  const loadTransactionsPage = async (page: number) => {
-    try {
-      const response = await ledgersAPI.getMyLedgers(page, 5);
-      const ledgersData = response.ledgers || [];
-      const mappedLedgers = ledgersData.map((ledger: any) => ({
-        id: ledger._id,
-        type: ledger.type === 'credit' ? 'payment' : 'debit',
-        description: ledger.note,
-        amount: ledger.type === 'credit' ? ledger.amountCents / 100 : -(ledger.amountCents / 100),
-        date: ledger.createdAt,
-        status: ledger.status,
-      }));
-      setTransactions(mappedLedgers);
-      setTransactionsPagination({
-        page: response.page,
-        totalPages: response.totalPages,
-        total: response.total,
-        limit: response.limit
-      });
-    } catch (error) {
-      console.error('Error loading transactions page:', error);
+        const mResponse = await membershipsAPI.getMyMembership(currentWorkspace.id);
+        const mData = mResponse.data || mResponse.membership;
+        if (mData) {
+          setMembership({
+            ...mData,
+            id: mData.id || mData._id,
+            planValue: mData.planValueCents ? mData.planValueCents / 100 : 0,
+            planValueCents: mData.planValueCents || 0
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
-  const getDebtStatusBadge = (status: string) => {
-    const statusMap = {
-      pending: { variant: 'warning' as const, label: 'Pendente' },
-      pendente: { variant: 'warning' as const, label: 'Pendente' },
-      paid: { variant: 'success' as const, label: 'Confirmado' },
-      confirmado: { variant: 'success' as const, label: 'Confirmado' },
-      overdue: { variant: 'error' as const, label: 'Atrasado' },
-    };
-    const config = statusMap[status as keyof typeof statusMap] || { variant: 'warning' as const, label: 'Pendente' };
-    return <BFBadge variant={config.variant}>{config.label}</BFBadge>;
+  const handleQuickJoin = async (gameId: string) => {
+    if (!user || !user.phone) {
+      toast.error('Seu perfil está incompleto. Fale com o admin.');
+      return;
+    }
+
+    try {
+      const loadingToast = toast.loading('Entrando na lista...');
+
+      // Call API to add player
+      // We assume isGoalkeeper false for quick join, or could add a dialog later if needed
+      await gamesAPI.addPlayerToGame(gameId, user.phone, user.name, false);
+
+      toast.dismiss(loadingToast);
+      toast.success('Presença Confirmada! ⚽');
+
+      // Refresh games list to show updated status
+      // We call the internal fetch logic again or a dedicated refresher
+      // Ideally we extract fetch logic to a useCallback, but for now specific reload:
+      const gamesResponse = await gamesAPI.getAllGames(1, 10, 'open');
+      const gamesData = gamesResponse.data || gamesResponse;
+      const mappedGames = Array.isArray(gamesData) ? gamesData.map((game: any) => ({
+        ...game,
+        id: game.id || game._id,
+        name: game.title || game.name,
+        status: game.status === 'open' ? 'scheduled' : game.status,
+        rawDate: game.date,
+        formattedDate: formatDateWithoutTimezone(game.date),
+        time: game.time,
+        location: game.location || 'A definir',
+        pricePerPlayer: game.pricePerPlayer || (game.priceCents ? game.priceCents / 100 : 0),
+        currentPlayers: game.currentPlayers ?? 0,
+        maxPlayers: game.maxPlayers ?? 0,
+        players: game.players || [],
+        isJoined: game.players?.some((p: any) => p.phone === user.phone),
+        paid: false
+      })) : [];
+      setGames(mappedGames);
+
+    } catch (error: any) {
+      console.error('Error joining game:', error);
+      toast.dismiss();
+      const msg = error.response?.data?.message || 'Erro ao entrar no jogo.';
+      toast.error(msg);
+    }
+  };
+
+  const handleQuickLeave = async (gameId: string) => {
+    // Find the game to get the player ID
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+
+    // Find self in players list
+    const playerRecord = game.players?.find((p: any) => p.phone === user?.phone);
+    if (!playerRecord) {
+      toast.error('Você não está nesta lista.');
+      return;
+    }
+
+    try {
+      const loadingToast = toast.loading('Saindo da lista...');
+      await gamesAPI.removePlayerFromGame(gameId, playerRecord.id);
+
+      toast.dismiss(loadingToast);
+      toast.success('Você saiu da lista.');
+
+      // Refresh Logic (Same as Join - duplicated for now, could be refactored)
+      const gamesResponse = await gamesAPI.getAllGames(1, 10, 'open');
+      const gamesData = gamesResponse.data || gamesResponse;
+      const mappedGames = Array.isArray(gamesData) ? gamesData.map((game: any) => ({
+        ...game,
+        id: game.id || game._id,
+        name: game.title || game.name,
+        status: game.status === 'open' ? 'scheduled' : game.status,
+        rawDate: game.date,
+        formattedDate: formatDateWithoutTimezone(game.date),
+        time: game.time,
+        location: game.location || 'A definir',
+        pricePerPlayer: game.pricePerPlayer || (game.priceCents ? game.priceCents / 100 : 0),
+        currentPlayers: game.currentPlayers ?? 0,
+        maxPlayers: game.maxPlayers ?? 0,
+        players: game.players || [],
+        isJoined: game.players?.some((p: any) => p.phone === user?.phone),
+        paid: false
+      })) : [];
+      setGames(mappedGames);
+
+    } catch (error: any) {
+      console.error('Error leaving game:', error);
+      toast.dismiss();
+      toast.error('Erro ao sair do jogo.');
+    }
+  };
+
+  const handleRegularize = () => {
+    // Try to find the oldest pending transaction
+    const pendingTransactions = balance.history
+      .filter(t => t.status === 'PENDING')
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+    if (pendingTransactions.length > 0) {
+      // Open modal for the first one
+      handlePayTransaction(pendingTransactions[0].id);
+      return;
+    }
+
+    // Fallback: scroll to history
+    const el = document.getElementById('financial-history');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    toast('Nenhuma fatura pendente encontrada. Verifique o histórico.');
   };
 
   if (loading) {
@@ -176,29 +273,32 @@ export const UserDashboard: React.FC = () => {
       <div>
         <h1 className="text-xl sm:text-2xl text-[--foreground] mb-2">Olá, {user?.name || 'Usuário'}! 👋</h1>
         <p className="text-sm sm:text-base text-[--muted-foreground]">
-          Acompanhe seus débitos e próximos jogos
+          Visão geral da sua conta e jogos
         </p>
       </div>
 
-      {/* Error Alert */}
       {error && (
-        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-          <p className="text-destructive text-sm">{error}</p>
-        </div>
+        <BFAlertMessage variant="error" message={error} />
       )}
+
+      {/* Membership Status Card */}
+      <SubscriptionStatusCard
+        membership={membership}
+        onRegularize={handleRegularize}
+        onManage={() => setManageModalOpen(true)}
+        pixKey={(currentWorkspace as any)?.settings?.pix}
+      />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        <BFCard variant="stat" padding="md" data-test="user-debt">
+        {/* Total Pending */}
+        <BFCard variant="stat" padding="md">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm sm:text-base text-white/80 mb-1">Débito Total</p>
+              <p className="text-sm sm:text-base text-white/80 mb-1">Pendências</p>
               <h2 className="text-xl sm:text-2xl text-white">
-                R$ {totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {balance.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h2>
-              <p className="text-xs sm:text-sm text-white/70 mt-2">
-                {pendingDebts.length} {pendingDebts.length === 1 ? 'pendência' : 'pendências'}
-              </p>
             </div>
             <div className="bg-white/20 p-2 sm:p-3 rounded-lg">
               <BFIcons.DollarSign size={20} color="white" className="sm:w-6 sm:h-6" />
@@ -206,210 +306,76 @@ export const UserDashboard: React.FC = () => {
           </div>
         </BFCard>
 
-        <BFCard variant="elevated" padding="md" data-test="user-games">
+        {/* Next Games Count */}
+        <BFCard variant="elevated" padding="md">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm sm:text-base text-[--muted-foreground] mb-1">Próximos Jogos</p>
-              <h2 className="text-xl sm:text-2xl text-[--foreground]">{upcomingGames.length}</h2>
-              <p className="text-xs sm:text-sm text-[--muted-foreground] mt-2">
-                Agendados
-              </p>
+              <h2 className="text-xl sm:text-2xl text-[--foreground]">{games.length}</h2>
             </div>
             <div className="bg-[--accent] p-2 sm:p-3 rounded-lg">
               <BFIcons.Trophy size={20} color="var(--primary)" className="sm:w-6 sm:h-6" />
             </div>
           </div>
         </BFCard>
-
-        <BFCard variant="elevated" padding="md" data-test="user-status">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm sm:text-base text-[--muted-foreground] mb-1">Status</p>
-              <BFBadge variant={user?.status === 'active' ? 'success' : 'error'} size="lg">{user?.status === 'active' ? 'Ativo' : 'Inativo'}</BFBadge>
-              <p className="text-xs sm:text-sm text-[--muted-foreground] mt-2">
-                Membro desde {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR', { year: 'numeric', month: 'short' }) : 'N/A'}
-              </p>
-            </div>
-            <div className="bg-[--success]/10 p-2 sm:p-3 rounded-lg">
-              <BFIcons.CheckCircle size={20} color="var(--success)" className="sm:w-6 sm:h-6" />
-            </div>
-          </div>
-        </BFCard>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
-        {/* Pending Debts */}
-        <BFCard variant="elevated" padding="lg" data-test="pending-debts">
-          <BFCardHeader
-            title="Débitos Pendentes"
-            subtitle={`${pendingDebts.length} ${pendingDebts.length === 1 ? 'débito' : 'débitos'}`}
-          />
-          <BFCardContent>
-            {pendingDebts.length === 0 ? (
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Upcoming Games List */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-[--foreground]">Próximos Jogos</h2>
+          {games.length === 0 ? (
+            <BFCard padding="lg">
               <div className="text-center py-8 text-[--muted-foreground]">
-                <BFIcons.CheckCircle size={48} className="mx-auto mb-3 text-[--success]" />
-                <p>Você não tem débitos pendentes!</p>
+                <p>Nenhum jogo agendado.</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingDebts.map((debt) => (
-                  <div
-                    key={debt.id}
-                    className="p-3 sm:p-4 bg-[--accent] rounded-lg border border-[--border]"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
-                      <div className="flex-1">
-                        <p className="text-sm sm:text-base text-[--foreground] font-medium">{debt.gameName}</p>
-                        <p className="text-xs sm:text-sm text-[--muted-foreground] mt-1">
-                          Vencimento: {new Date(debt.dueDate).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                      <div className="self-start">
-                        {getDebtStatusBadge(debt.status)}
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-3 pt-3 border-t border-[--border]">
-                      <h4 className="text-lg sm:text-xl text-[--foreground] font-semibold">
-                        R$ {debt.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                      <BFButton
-                        variant={copiedDebtId === debt.id ? 'success' : 'primary'}
-                        size="sm"
-                        icon={copiedDebtId === debt.id ? <BFIcons.CheckCircle size={16} /> : <BFIcons.Copy size={16} />}
-                        onClick={() => handleCopyPixKey(debt.id, debt.pix)}
-                        data-test={`pay-debt-${debt.id}`}
-                        disabled={!debt.pix}
-                        className="w-full sm:w-auto"
-                      >
-                        {copiedDebtId === debt.id ? 'Copiado!' : 'Copiar PIX'}
-                      </BFButton>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </BFCardContent>
-        </BFCard>
+            </BFCard>
+          ) : (
+            <div className="space-y-3">
+              {games.map(game => (
+                <GameCard
+                  key={game.id}
+                  {...game}
+                  formattedDate={game.formattedDate}
+                  date={game.rawDate} // Important for isFutureGame logic
+                  membershipStatus={membership?.status || 'INACTIVE'}
+                  onJoin={handleQuickJoin}
+                  onLeave={handleQuickLeave}
+                  isJoined={game.isJoined}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Upcoming Games */}
-        <BFCard variant="elevated" padding="lg" data-test="upcoming-games">
-          <BFCardHeader
-            title="Próximos Jogos"
-            subtitle="Jogos agendados"
+        {/* Financial History */}
+        <div id="financial-history" className="space-y-4">
+          <h2 className="text-lg font-semibold text-[--foreground]">Histórico Financeiro</h2>
+          <TransactionHistory
+            transactions={balance.history}
+            onPay={handlePayTransaction}
+            hideTitle={true}
           />
-          <BFCardContent>
-            {upcomingGames.length === 0 ? (
-              <div className="text-center py-8 text-[--muted-foreground]">
-                <BFIcons.Trophy size={48} className="mx-auto mb-3" />
-                <p>Nenhum jogo agendado no momento</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {upcomingGames.map((game) => (
-                  <div
-                    key={game.id}
-                    className="p-3 sm:p-4 bg-[--accent] rounded-lg border border-[--border]"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="bg-[--primary]/10 p-2 rounded-lg flex-shrink-0">
-                        <BFIcons.Trophy size={20} color="var(--primary)" className="sm:w-6 sm:h-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm sm:text-base text-[--foreground] font-medium truncate">{game.name}</h4>
-                        <p className="text-xs sm:text-sm text-[--muted-foreground]">
-                          {(game.date)} às {game.time}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
-                      <div>
-                        <p className="text-[--muted-foreground]">Valor</p>
-                        <p className="text-[--foreground] font-medium">R$ {game.pricePerPlayer.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                      </div>
-                      <div>
-                        <p className="text-[--muted-foreground]">Jogadores</p>
-                        <p className="text-[--foreground] font-medium">{game.currentPlayers}/{game.maxPlayers}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </BFCardContent>
-        </BFCard>
+        </div>
       </div>
 
-      {/* Transaction History */}
-      <BFListView
-        title="Histórico de Transações"
-        description={`${transactionsPagination.total} movimentações`}
-        stats={[]}
-        columns={[
-          {
-            key: 'description',
-            label: 'Descrição',
-            render: (value: string, row: any) => (
-              <div className="flex items-center gap-3">
-                <div
-                  className={`p-2 rounded-lg flex-shrink-0 ${row.type === 'payment'
-                    ? 'bg-[--success]/10'
-                    : 'bg-[--destructive]/10'
-                    }`}
-                >
-                  {row.type === 'payment' ? (
-                    <BFIcons.TrendingUp size={18} color="var(--success)" className="sm:w-5 sm:h-5" />
-                  ) : (
-                    <BFIcons.TrendingDown size={18} color="var(--destructive)" className="sm:w-5 sm:h-5" />
-                  )}
-                </div>
-                <span className="font-medium text-[--foreground]">{value}</span>
-              </div>
-            ),
-          },
-          {
-            key: 'amount',
-            label: 'Valor',
-            render: (value: number, row: any) => (
-              <span
-                className={`font-semibold ${row.type === 'payment'
-                  ? 'text-[--success]'
-                  : 'text-[--destructive]'
-                  }`}
-              >
-                {value > 0 ? '+' : ''}R$ {Math.abs(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            ),
-          },
-          {
-            key: 'date',
-            label: 'Data',
-            render: (value: string) => (
-              <span className="text-[--muted-foreground]">
-                {new Date(value).toLocaleDateString('pt-BR')} às {new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            ),
-          },
-          {
-            key: 'status',
-            label: 'Status',
-            render: (value: string) => getDebtStatusBadge(value),
-          },
-        ]}
-        data={transactions}
-        loading={loading}
-        pagination={{
-          page: transactionsPagination.page,
-          limit: transactionsPagination.limit,
-          total: transactionsPagination.total,
-          totalPages: transactionsPagination.totalPages,
-          onPageChange: loadTransactionsPage,
-        }}
-        emptyState={{
-          message: 'Nenhuma transação encontrada',
-          icon: <BFIcons.Search size={48} className="text-[--muted-foreground] mb-3" />
-        }}
+      {/* Payment Modal */}
+      <PaymentModal
+        open={paymentModalOpen}
+        onOpenChange={setPaymentModalOpen}
+        transactionId={selectedTransactionId}
+        onPaymentSuccess={handlePaymentSuccess}
+        pixKey={(currentWorkspace as any)?.settings?.pix}
       />
+
+      {/* Manage Subscription Modal */}
+      <ManageSubscriptionModal
+        open={manageModalOpen}
+        onOpenChange={setManageModalOpen}
+        membership={membership}
+        onUpdate={handlePaymentSuccess} // Refresh data on update
+      />
+
     </div>
   );
 };

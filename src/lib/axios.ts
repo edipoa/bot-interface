@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 300000000000000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -61,6 +61,11 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    const workspaceId = localStorage.getItem('workspaceId');
+    if (workspaceId && config.headers) {
+      config.headers['x-workspace-id'] = workspaceId;
+    }
+
     return config;
   },
   (error) => {
@@ -80,6 +85,22 @@ api.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };
+
+    // Handle 403 Forbidden (e.g., early access restriction for future games)
+    if (error.response?.status === 403) {
+      const message = (error.response.data as any)?.message ||
+        'Acesso restrito a mensalistas para jogos futuros';
+
+      // Dynamically import toast to avoid circular dependencies
+      import('sonner').then(({ toast }) => {
+        toast.error(message, {
+          description: 'Torne-se um mensalista para ter early access aos jogos!',
+          duration: 5000,
+        });
+      });
+
+      return Promise.reject(error);
+    }
 
     if (!error.response || error.response.status !== 401 || !originalRequest) {
       return Promise.reject(error);
@@ -176,21 +197,16 @@ export const authAPI = {
   verifyOTP: async (phone: string, otp: string) => {
     const response = await api.post('/auth/verify-otp', { phone, code: otp });
 
-    console.log('Response from API:', response.data);
-
     const responseData = response.data.data || response.data;
     const accessToken = responseData.accessToken || responseData.access_token;
     const refreshToken = responseData.refreshToken || responseData.refresh_token;
     const user = responseData.user;
-
-    console.log('Tokens extracted:', { accessToken, refreshToken, user });
 
     if (accessToken && refreshToken) {
       tokenService.setTokens(accessToken, refreshToken);
       if (user) {
         tokenService.setUser(user);
       }
-      console.log('Tokens saved to localStorage');
     } else {
       console.error('No tokens received from API');
     }
@@ -230,59 +246,7 @@ export const authAPI = {
 /**
  * API de Débitos
  */
-export const debtsAPI = {
-  /**
-   * Busca todos os débitos do usuário autenticado
-   */
-  getMyDebts: async () => {
-    const response = await api.get(`players/${tokenService.getUser()?.id}/debts`);
-    return response.data;
-  },
 
-  /**
-   * Busca débitos por ID do usuário (admin)
-   */
-  getDebtsByUserId: async (userId: string) => {
-    const response = await api.get(`/debts/user/${userId}`);
-    return response.data;
-  },
-
-  /**
-   * Busca um débito específico por ID
-   */
-  getDebtById: async (debtId: string) => {
-    const response = await api.get(`/debts/${debtId}`);
-    return response.data;
-  },
-
-  /**
-   * Marca débito como pago
-   */
-  markAsPaid: async (debtId: string, data?: { amount?: number; method?: string; notes?: string; category?: string }) => {
-    const response = await api.post(`/debts/${debtId}/pay`, data || {});
-    return response.data;
-  },
-
-  /**
-   * Lista todos os debitos
-   */
-  getAllDebts: async (page: number = 1, limit: number = 10, status?: string, search?: string, sort?: string) => {
-    const params: any = { page, limit };
-    if (status && status !== 'all') params.status = status;
-    if (search) params.search = search;
-    if (sort) params.sort = sort;
-    const response = await api.get('/debts', { params });
-    return response.data;
-  },
-
-  /**
-   * Cria um novo débito
-   */
-  createDebt: async (data: any) => {
-    const response = await api.post('/debts', data);
-    return response.data;
-  },
-};
 
 
 /**
@@ -330,8 +294,8 @@ export const gamesAPI = {
   /**
    * Cancela/deleta um jogo
    */
-  deleteGame: async (gameId: string) => {
-    const response = await api.delete(`/games/${gameId}`);
+  deleteGame: async (gameId: string, workspaceId: string) => {
+    const response = await api.delete(`/games/${gameId}`, { data: { workspaceId } });
     return response.data;
   },
 
@@ -346,8 +310,8 @@ export const gamesAPI = {
   /**
    * Fecha um jogo
    */
-  closeGame: async (gameId: string) => {
-    const response = await api.post(`/games/${gameId}/close`);
+  closeGame: async (gameId: string, workspaceId: string) => {
+    const response = await api.post(`/games/${gameId}/close`, { workspaceId });
     return response.data;
   },
 
@@ -415,7 +379,30 @@ export const chatsAPI = {
   },
 
   /**
-   * Cria um novo chat
+   * Busca um chat por ID
+   */
+  getChatById: async (chatId: string) => {
+    const response = await api.get(`/chats/${chatId}`);
+    return response.data;
+  },
+
+  /**
+   * Vincula um novo chat (Bind)
+   */
+  bindChat: async (data: {
+    code?: string;
+    chatId?: string;
+    name?: string;
+    workspaceId?: string;
+  }) => {
+    // Backend espera chatId e workspaceId no body para createChat ou lógica especifica de bind
+    // Se for via código !bind, o endpoint pode ser diferente ou o payload adaptado
+    const response = await api.post('/chats', data);
+    return response.data;
+  },
+
+  /**
+   * Cria um novo chat (Legacy/Manual)
    */
   createChat: async (data: {
     workspaceId: string;
@@ -444,12 +431,23 @@ export const chatsAPI = {
       name?: string;
       label?: string;
       status?: 'active' | 'inactive' | 'archived';
+      settings?: {
+        allowGuests?: boolean;
+        autoCreateGame?: boolean;
+        autoCreateDaysBefore?: number;
+        requirePaymentProof?: boolean;
+      };
+      financials?: {
+        defaultPriceCents?: number;
+        pixKey?: string;
+        acceptsCash?: boolean;
+      };
       schedule?: {
-        weekday: number;
-        time: string;
-        title: string;
-        priceCents: number;
-        pix: string;
+        weekday?: number;
+        time?: string;
+        title?: string;
+        priceCents?: number;
+        pix?: string;
       };
     }
   ) => {
@@ -463,6 +461,21 @@ export const chatsAPI = {
     const response = await api.get('/chats', {
       params: { workspaceId }
     });
+    return response.data;
+  },
+  /**
+   * Ativa um chat
+   */
+  activateChat: async (chatId: string) => {
+    const response = await api.post(`/chats/${chatId}/activate`);
+    return response.data;
+  },
+
+  /**
+   * Desativa um chat
+   */
+  deactivateChat: async (chatId: string) => {
+    const response = await api.post(`/chats/${chatId}/deactivate`);
     return response.data;
   },
 };
@@ -484,6 +497,14 @@ export const workspacesAPI = {
    */
   getWorkspace: async (workspaceId: string) => {
     const response = await api.get(`/workspaces/${workspaceId}`);
+    return response.data;
+  },
+
+  /**
+   * Atualiza os dados de um workspace
+   */
+  updateWorkspace: async (workspaceId: string, data: any) => {
+    const response = await api.put(`/workspaces/${workspaceId}`, data);
     return response.data;
   },
 
@@ -553,6 +574,22 @@ export const ledgersAPI = {
  */
 export const playersAPI = {
   /**
+   * Cria um novo jogador
+   */
+  createPlayer: async (data: {
+    name: string;
+    phoneE164: string;
+    nick?: string;
+    position?: 'GOALKEEPER' | 'DEFENDER' | 'MIDFIELDER' | 'STRIKER';
+    type: 'MENSALISTA' | 'AVULSO';
+    stars?: number;
+    workspaceId: string;
+  }) => {
+    const response = await api.post('/players', data);
+    return response.data;
+  },
+
+  /**
    * Atualiza os dados de um jogador
    */
   updatePlayer: async (playerId: string, data: {
@@ -562,6 +599,7 @@ export const playersAPI = {
     status?: 'active' | 'inactive' | 'suspended';
     isGoalie?: boolean;
     role?: 'admin' | 'user';
+    workspaceId?: string;
   }) => {
     const response = await api.put(`/players/${playerId}`, data);
     return response.data;
@@ -616,10 +654,10 @@ export const playersAPI = {
   },
 
   /**
-   * Busca débitos de um jogador específico
+   * Busca movimentações (transações) de um jogador
    */
-  getPlayerDebts: async (playerId: string) => {
-    const response = await api.get(`/players/${playerId}/debts`);
+  getPlayerTransactions: async (playerId: string) => {
+    const response = await api.get(`/players/${playerId}/transactions`);
     return response.data;
   },
 
@@ -702,99 +740,61 @@ export const bbqAPI = {
    * Obtém detalhes de um churrasco específico
    * @swagger GET /api/bbq/{id}
    */
-  getBBQById: async (bbqId: string) => {
-    const response = await api.get(`/bbq/${bbqId}`);
+  getBBQById: async (id: string) => {
+    const response = await api.get(`/bbq/${id}`);
     return response.data;
   },
 
   /**
    * Cria um novo churrasco
-   * @swagger POST /api/bbq
    */
-  createBBQ: async (data: {
-    chatId?: string;
-    workspaceId?: string;
-    date?: string;
-    valuePerPerson?: number;
-  }) => {
+  createBBQ: async (data: any) => {
     const response = await api.post('/bbq', data);
     return response.data;
   },
 
   /**
-   * Atualiza um churrasco existente
-   * @swagger PUT /api/bbq/{id}
+   * Atualiza um churrasco
    */
-  updateBBQ: async (bbqId: string, data: {
-    date?: string;
-    valuePerPerson?: number;
-    status?: 'open' | 'closed' | 'finished' | 'cancelled';
-  }) => {
-    const response = await api.put(`/bbq/${bbqId}`, data);
+  updateBBQ: async (id: string, data: any) => {
+    const response = await api.patch(`/bbq/${id}`, data);
     return response.data;
   },
 
   /**
-   * Atualiza apenas o status de um churrasco
-   * @swagger PATCH /api/bbq/{id}/status
+   * Fecha um churrasco e gera cobranças
    */
-  updateStatus: async (bbqId: string, status: 'open' | 'closed' | 'finished' | 'cancelled') => {
-    const response = await api.patch(`/bbq/${bbqId}/status`, { status });
-    return response.data;
-  },
-
-  /**
-   * Fecha um churrasco e processa débitos
-   * @swagger POST /api/bbq/{id}/close
-   */
-  closeBBQ: async (bbqId: string) => {
-    const response = await api.post(`/bbq/${bbqId}/close`);
+  closeBBQ: async (id: string) => {
+    const response = await api.post(`/bbq/${id}/close`);
     return response.data;
   },
 
   /**
    * Cancela um churrasco
-   * @swagger POST /api/bbq/{id}/cancel
    */
-  cancelBBQ: async (bbqId: string) => {
-    const response = await api.post(`/bbq/${bbqId}/cancel`);
+  cancelBBQ: async (id: string) => {
+    const response = await api.post(`/bbq/${id}/cancel`);
     return response.data;
   },
 
   /**
-   * Adiciona um participante ao churrasco (usuário do banco de dados)
-   * @param bbqId ID do churrasco
-   * @param userId ID do usuário
-   * @param userName Nome do usuário
+   * Adiciona participante (membro)
    */
   addParticipant: async (bbqId: string, userId: string, userName: string) => {
-    const response = await api.post(`/bbq/${bbqId}/participants`, {
-      userId,
-      userName,
-      invitedBy: null,
-    });
+    const response = await api.post(`/bbq/${bbqId}/participants`, { userId, userName });
     return response.data;
   },
 
   /**
-   * Adiciona um convidado ao churrasco
-   * @param bbqId ID do churrasco
-   * @param inviterId ID do convidador
-   * @param guestName Nome do convidado
+   * Adiciona participante (convidado)
    */
-  addGuest: async (bbqId: string, inviterId: string, guestName: string) => {
-    const response = await api.post(`/bbq/${bbqId}/participants`, {
-      userId: `guest_${Date.now()}`,
-      userName: guestName,
-      invitedBy: inviterId,
-    });
+  addGuest: async (bbqId: string, invitedBy: string, guestName: string) => {
+    const response = await api.post(`/bbq/${bbqId}/participants`, { invitedBy, guestName, isGuest: true });
     return response.data;
   },
 
   /**
-   * Remove um participante do churrasco
-   * @param bbqId ID do churrasco
-   * @param userId ID do usuário/participante
+   * Remove participante
    */
   removeParticipant: async (bbqId: string, userId: string) => {
     const response = await api.delete(`/bbq/${bbqId}/participants/${userId}`);
@@ -802,17 +802,167 @@ export const bbqAPI = {
   },
 
   /**
-   * Marca ou desmarca um participante como pago
-   * @param bbqId ID do churrasco
-   * @param userId ID do participante
-   * @param isPaid Status de pagamento
+   * Alterna status de pagamento
    */
   toggleParticipantPayment: async (bbqId: string, userId: string, isPaid: boolean) => {
     const response = await api.patch(`/bbq/${bbqId}/participants/${userId}/payment`, { isPaid });
+    return response.data;
+  }
+};
+
+
+/**
+ * API de Memberships (Assinaturas)
+ */
+export const membershipsAPI = {
+  /**
+   * Busca a assinatura do usuário autenticado
+   */
+  getMyMembership: async (workspaceId: string) => {
+    const response = await api.get(`/memberships/my`, {
+      params: { workspaceId }
+    });
+    return response.data;
+  },
+
+  /**
+   * Cria uma nova assinatura
+   */
+
+  createMembership: async (data: { workspaceId: string; userId: string; planValue: number }) => {
+    const response = await api.post('/memberships/admin/create', data);
+    return response.data;
+  },
+
+  /**
+   * Suspende a assinatura
+   */
+  suspendMembership: async (membershipId: string, notes?: string) => {
+    const response = await api.patch(`/memberships/${membershipId}/suspend`, { notes });
+    return response.data;
+  },
+
+  /**
+   * Cancela a assinatura
+   */
+  cancelMembership: async (membershipId: string, immediate: boolean = false, notes?: string) => {
+    const response = await api.post(`/memberships/${membershipId}/cancel`, { immediate, notes });
+    return response.data;
+  },
+
+  /**
+   * Reativa a assinatura
+   */
+  reactivateMembership: async (membershipId: string, notes?: string) => {
+    const response = await api.patch(`/memberships/${membershipId}/reactivate`, { notes });
+    return response.data;
+  },
+  getAdminList: async (params: { workspaceId: string; page?: number; limit?: number; filter?: string; search?: string }) => {
+    const response = await api.get('/memberships/admin/list', { params });
+    return response.data;
+  },
+  updateMembership: async (id: string, data: { planValue?: number; billingDay?: number; workspaceId?: string }) => {
+    const response = await api.put(`/memberships/${id}`, data);
+    return response.data;
+  },
+  registerManualPayment: async (id: string, data: { amount: number; method: string; description?: string; workspaceId?: string }) => {
+    const response = await api.post(`/memberships/${id}/manual-payment`, data);
+    return response.data;
+  },
+  suspendMembershipAdmin: async (id: string, reason: string, workspaceId: string) => {
+    const response = await api.post(`/memberships/${id}/suspend`, { reason, workspaceId });
+    return response.data;
+  },
+  cancelMembershipAdmin: async (id: string, immediate: boolean, workspaceId: string) => {
+    const response = await api.post(`/memberships/${id}/cancel`, { immediate, workspaceId });
+    return response.data;
+  },
+};
+
+/**
+ * API de Transactions (Faturas/Transações)
+ */
+export const transactionsAPI = {
+  /**
+   * Busca transações do usuário autenticado
+   */
+  getMyTransactions: async (page: number = 1, limit: number = 10, filters?: {
+    status?: 'PENDING' | 'COMPLETED' | 'OVERDUE' | 'CANCELLED';
+    type?: 'INCOME' | 'EXPENSE';
+    category?: string;
+  }) => {
+    const params: any = { page, limit };
+    if (filters?.status) params.status = filters.status;
+    if (filters?.type) params.type = filters.type;
+    if (filters?.category) params.category = filters.category;
+
+    const response = await api.get('/transactions/my', { params });
+    return response.data;
+  },
+
+  /**
+   * Busca o saldo financeiro do usuário
+   */
+  getMyBalance: async (workspaceId?: string) => {
+    const params: any = {};
+    if (workspaceId) params.workspaceId = workspaceId;
+
+    const response = await api.get('/transactions/balance', { params });
+    return response.data;
+  },
+
+  /**
+   * Processa pagamento de uma transação
+   */
+  payTransaction: async (transactionId: string, data?: {
+    method?: 'pix' | 'dinheiro' | 'transf' | 'ajuste';
+    notes?: string;
+  }) => {
+    const response = await api.post(`/transactions/${transactionId}/pay`, data || {});
+    return response.data;
+  },
+
+  /**
+   * Busca uma transação específica por ID
+   */
+  getTransactionById: async (transactionId: string) => {
+    const response = await api.get(`/transactions/${transactionId}`);
+    return response.data;
+  },
+
+  getAll: async (params: {
+    workspaceId: string;
+    page?: number;
+    limit?: number;
+    type?: 'INCOME' | 'EXPENSE';
+    status?: string;
+    category?: string;
+    search?: string;
+  }) => {
+    const response = await api.get('/transactions', { params });
+    return response.data;
+  },
+
+  getStats: async (workspaceId: string) => {
+    const response = await api.get('/transactions/stats', {
+      params: { workspaceId }
+    });
+    return response.data;
+  },
+
+  getChartData: async (workspaceId: string, days?: number) => {
+    const response = await api.get('/transactions/chart', {
+      params: { workspaceId, days }
+    });
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/transactions', data);
     return response.data;
   },
 };
 
 
-
 export default api;
+

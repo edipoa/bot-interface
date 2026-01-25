@@ -9,7 +9,7 @@ export interface BFSidebarItem {
   path: string;
   badge?: string | number;
   roles?: ('admin' | 'user')[];
-  separator?: boolean; 
+  separator?: boolean;
   sectionLabel?: string;
 }
 
@@ -26,6 +26,9 @@ export interface BFSidebarProps {
   'data-test'?: string;
 }
 
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
 export const BFSidebar: React.FC<BFSidebarProps> = ({
   items,
   activeItem,
@@ -39,6 +42,8 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
   'data-test': dataTest,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { workspaces, currentWorkspace } = useAuth();
+  const navigate = useNavigate();
 
   const filteredItems = items.filter(
     (item) => !item.roles || item.roles.includes(userRole)
@@ -48,8 +53,8 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
     <>
       {/* Mobile Overlay */}
       {isMobileOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black/50 z-40" 
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
           onClick={onMobileToggle}
         />
       )}
@@ -87,6 +92,29 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
           </button>
         </div>
 
+        {/* Workspace Switcher (if applicable) */}
+        {!isCollapsed && workspaces.length > 0 && (
+          <div className="px-4 py-3 border-b border-[#1A2B42]">
+            <div className="text-[10px] text-white/50 uppercase tracking-wider mb-1">
+              Grupo Atual
+            </div>
+            <div className="flex items-center justify-between group">
+              <div className="font-medium text-sm truncate pr-2">
+                {currentWorkspace?.name || 'Selecione...'}
+              </div>
+
+              {workspaces.length > 1 && (
+                <button
+                  onClick={() => navigate('/select-workspace')}
+                  className="text-xs text-[#00D66F] hover:text-[#00D66F]/80 transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  Trocar
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
@@ -110,7 +138,7 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
                   {item.separator && isCollapsed && (
                     <div className="border-t border-[#1A2B42] my-2"></div>
                   )}
-                  
+
                   <button
                     onClick={() => {
                       onItemClick(item.id);
@@ -121,10 +149,9 @@ export const BFSidebar: React.FC<BFSidebarProps> = ({
                     className={`
                       w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
                       transition-all duration-200 cursor-pointer
-                      ${
-                        isActive
-                          ? 'bg-[#00D66F] text-white'
-                          : 'text-white hover:bg-[#1A2B42]'
+                      ${isActive
+                        ? 'bg-[#00D66F] text-white'
+                        : 'text-white hover:bg-[#1A2B42]'
                       }
                       ${isCollapsed ? 'justify-center' : ''}
                     `}

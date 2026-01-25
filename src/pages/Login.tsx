@@ -7,11 +7,13 @@ import { BFLogo } from '../components/BF-Logo';
 import { BFAlertMessage } from '../components/BF-AlertMessage';
 import { ArrowLeft, Smartphone } from 'lucide-react';
 import { authAPI, tokenService } from '../lib/axios';
+import { useAuthContext } from '../contexts/AuthContext';
 
 type LoginStep = 'phone' | 'otp';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuthContext();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [step, setStep] = useState<LoginStep>('phone');
   const [phone, setPhone] = useState('');
@@ -26,8 +28,15 @@ export const Login: React.FC = () => {
       if (authAPI.isAuthenticated()) {
         try {
           const user = await authAPI.getMe();
-          // Save user data to localStorage to persist role and other info
           tokenService.setUser(user);
+
+          // Check if workspace is selected
+          const storedWorkspaceId = localStorage.getItem('workspaceId');
+          if (!storedWorkspaceId && user.workspaces && user.workspaces.length > 1) {
+            navigate('/select-workspace', { replace: true });
+            return;
+          }
+
           if (user.role === 'admin') {
             navigate('/admin/dashboard', { replace: true });
           } else {
@@ -108,8 +117,11 @@ export const Login: React.FC = () => {
       }
 
       const phoneWithCountryCode = numbers.startsWith('55') ? numbers : `55${numbers}`;
-      const response = await authAPI.verifyOTP(phoneWithCountryCode, otp);
 
+      // Use AuthContext signIn instead of direct API call
+      await signIn(phoneWithCountryCode, otp);
+
+      // Wait a bit for state to update
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const savedToken = localStorage.getItem('accessToken');
@@ -120,12 +132,38 @@ export const Login: React.FC = () => {
         return;
       }
 
-      const userRole = response.user?.role || 'user';
+      // Get user data from localStorage (set by signIn)
+      const userData = tokenService.getUser();
 
-      if (userRole === 'admin') {
-        navigate('/admin/dashboard');
+      // Check workspace selection logic
+      if (userData?.workspaces) {
+        if (userData.workspaces.length === 0) {
+          // No workspaces - show message or redirect to create workspace
+          setError('Você não pertence a nenhum grupo ainda.');
+          setLoading(false);
+          return;
+        } else if (userData.workspaces.length === 1) {
+          // Auto-selected by signIn, proceed to dashboard
+          const workspace = userData.workspaces[0];
+          const wsRole = (workspace.role || '').toLowerCase();
+
+          if (wsRole === 'admin' || wsRole === 'owner' || userData.role === 'admin') {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/user/dashboard');
+          }
+        } else {
+          // Multiple workspaces - redirect to selection
+          navigate('/select-workspace');
+        }
       } else {
-        navigate('/user/dashboard');
+        // Fallback to old behavior if no workspaces in response
+        const userRole = userData?.role || 'user';
+        if (userRole === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/user/dashboard');
+        }
       }
     } catch (error: any) {
       console.error('Verify OTP error:', error);

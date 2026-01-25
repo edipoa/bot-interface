@@ -12,7 +12,7 @@ export interface BFInputProps extends Omit<React.InputHTMLAttributes<HTMLInputEl
   onChange?: (value: string) => void;
 }
 
-export const BFInput: React.FC<BFInputProps> = ({
+export const BFInput = React.forwardRef<HTMLInputElement, BFInputProps>(({
   label,
   error,
   helperText,
@@ -24,7 +24,7 @@ export const BFInput: React.FC<BFInputProps> = ({
   'data-test': dataTest,
   onChange,
   ...props
-}) => {
+}, ref) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (onChange) {
       onChange(e.target.value);
@@ -66,7 +66,7 @@ export const BFInput: React.FC<BFInputProps> = ({
             {icon}
           </div>
         )}
-        <input className={inputClasses} onChange={handleChange} {...props} />
+        <input ref={ref} className={inputClasses} onChange={handleChange} {...props} />
         {icon && iconPosition === 'right' && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]">
             {icon}
@@ -85,7 +85,9 @@ export const BFInput: React.FC<BFInputProps> = ({
       )}
     </div>
   );
-};
+});
+
+BFInput.displayName = 'BFInput';
 
 export interface BFTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -95,7 +97,7 @@ export interface BFTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAr
   'data-test'?: string;
 }
 
-export const BFTextarea: React.FC<BFTextareaProps> = ({
+export const BFTextarea = React.forwardRef<HTMLTextAreaElement, BFTextareaProps>(({
   label,
   error,
   helperText,
@@ -103,7 +105,7 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
   className = '',
   'data-test': dataTest,
   ...props
-}) => {
+}, ref) => {
   const textareaClasses = `
     ${fullWidth ? 'w-full' : ''}
     ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-700 focus:ring-[var(--primary)]'}
@@ -128,7 +130,7 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
           {label}
         </label>
       )}
-      <textarea className={textareaClasses} {...props} />
+      <textarea ref={ref} className={textareaClasses} {...props} />
       {error && (
         <p className="mt-1.5 text-[var(--destructive)] text-sm" data-test={`${dataTest}-error`}>
           {error}
@@ -141,4 +143,6 @@ export const BFTextarea: React.FC<BFTextareaProps> = ({
       )}
     </div>
   );
-};
+});
+
+BFTextarea.displayName = 'BFTextarea';

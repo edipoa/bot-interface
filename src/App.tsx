@@ -5,17 +5,18 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { ManageGames } from './pages/ManageGames';
 import { GameDetail } from './pages/GameDetail';
 import { ManagePlayers } from './pages/ManagePlayers';
-import { ManageDebts } from './pages/ManageDebts';
 import { ManageWorkspaces } from './pages/ManageWorkspaces';
-import { AddCredit } from './pages/AddCredit';
-import { AddDebit } from './pages/AddDebit';
+import ManageMemberships from './pages/ManageMemberships';
 import { WorkspaceDetail } from './pages/WorkspaceDetail';
 import { UserDashboard } from './pages/UserDashboard';
+import { WorkspaceSettings } from './pages/WorkspaceSettings';
 import { Login } from './pages/Login';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import './styles/globals.css';
 import { useAuth } from './hooks/useAuth';
 import { authAPI } from './lib/axios';
+import { ManageBBQ } from './pages/ManageBBQ';
+import { BBQDetails } from './pages/BBQDetails';
 
 type UserRole = 'admin' | 'user';
 
@@ -25,6 +26,7 @@ export default function App() {
   const [activeItem, setActiveItem] = useState('dashboard');
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [selectedBBQId, setSelectedBBQId] = useState<string | null>(null);
   const { user } = useAuth();
 
   if (!isAuthenticated) {
@@ -47,19 +49,18 @@ export default function App() {
       roles: ['admin'],
     },
     {
+      id: 'bbq',
+      label: 'Churrasco',
+      icon: 'Flame',
+      path: '/admin/bbq',
+      roles: ['admin'],
+    },
+    {
       id: 'players',
       label: 'Jogadores',
       icon: 'Users',
       path: '/admin/players',
       roles: ['admin'],
-    },
-    {
-      id: 'debts',
-      label: 'Débitos',
-      icon: 'DollarSign',
-      path: '/admin/debts',
-      roles: ['admin'],
-      badge: '12',
     },
     {
       id: 'workspaces',
@@ -69,26 +70,17 @@ export default function App() {
       roles: ['admin'],
     },
     {
-      id: 'add-credit',
-      label: 'Adicionar Crédito',
-      icon: 'PlusCircle',
-      path: '/admin/add-credit',
-      roles: ['admin'],
-      separator: true,
-      sectionLabel: 'Ações Rápidas',
-    },
-    {
-      id: 'add-debit',
-      label: 'Adicionar Débito',
-      icon: 'MinusCircle',
-      path: '/admin/add-debit',
+      id: 'memberships',
+      label: 'Mensalidades',
+      icon: 'CreditCard',
+      path: '/admin/memberships',
       roles: ['admin'],
     },
     {
-      id: 'dev-handoff',
-      label: 'Dev Handoff',
+      id: 'settings',
+      label: 'Configurações',
       icon: 'Settings',
-      path: '/dev-handoff',
+      path: '/admin/settings',
       roles: ['admin'],
     },
   ];
@@ -110,7 +102,7 @@ export default function App() {
     },
   ];
 
-  const sidebarItems = user.role === 'admin' ? adminItems : userItems;
+  const sidebarItems = user?.role === 'admin' ? adminItems : userItems;
 
   const handleWorkspaceSelect = (workspaceId: string) => {
     setSelectedWorkspaceId(workspaceId);
@@ -132,6 +124,16 @@ export default function App() {
     setActiveItem('games');
   };
 
+  const handleBBQSelect = (bbqId: string) => {
+    setSelectedBBQId(bbqId);
+    setActiveItem('bbq');
+  };
+
+  const handleBackToBBQ = () => {
+    setSelectedBBQId(null);
+    setActiveItem('bbq');
+  };
+
   const renderContent = () => {
     if (selectedGameId) {
       return (
@@ -151,22 +153,33 @@ export default function App() {
       );
     }
 
-    if (user.role === 'admin') {
+    if (selectedBBQId) {
+      return (
+        <BBQDetails
+          bbqId={selectedBBQId}
+          onBack={handleBackToBBQ}
+        // @ts-ignore - BBQDetails will be updated shortly to accept props
+        />
+      );
+    }
+
+    if (user?.role === 'admin') {
       switch (activeItem) {
         case 'dashboard':
           return <AdminDashboard />;
         case 'games':
           return <ManageGames onSelectGame={handleGameSelect} />;
+        case 'bbq':
+          return <ManageBBQ onSelectBBQ={handleBBQSelect} />;
         case 'players':
           return <ManagePlayers />;
-        case 'debts':
-          return <ManageDebts />;
         case 'workspaces':
           return <ManageWorkspaces onSelectWorkspace={handleWorkspaceSelect} />;
-        case 'add-credit':
-          return <AddCredit />;
-        case 'add-debit':
-          return <AddDebit />;
+        case 'memberships':
+          // @ts-ignore
+          return <ManageMemberships />;
+        case 'settings':
+          return <WorkspaceSettings />;
         default:
           return <AdminDashboard />;
       }
@@ -202,9 +215,9 @@ export default function App() {
         items={sidebarItems}
         activeItem={activeItem}
         onItemClick={setActiveItem}
-        userRole={user.role}
-        userName={user.name || 'Usuário'}
-        userEmail={user.phone}
+        userRole={(user?.role as 'admin' | 'user') || 'user'}
+        userName={user?.name || 'Usuário'}
+        userEmail={user?.phone || ''}
         onLogout={async () => {
           await authAPI.logout();
         }}
@@ -252,7 +265,10 @@ export default function App() {
                   <BFIcons.Bell size={20} />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--destructive)] rounded-full" />
                 </button>
-                <button className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors">
+                <button
+                  className="p-2 hover:bg-[var(--accent)] rounded-md transition-colors"
+                  onClick={() => setActiveItem('settings')}
+                >
                   <BFIcons.Settings size={20} />
                 </button>
               </div>

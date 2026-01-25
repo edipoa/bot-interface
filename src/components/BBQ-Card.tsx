@@ -2,7 +2,7 @@ import React from 'react';
 import { BFCard } from './BF-Card';
 import { BFBadge } from './BF-Badge';
 import { BFIcons } from './BF-Icons';
-import { formatISODate } from '../lib/dateUtils';
+import { formatEventDate } from '../lib/dateUtils';
 import type { BBQ } from '../lib/types';
 
 export interface BBQCardProps {
@@ -51,7 +51,7 @@ export const BBQCard: React.FC<BBQCardProps> = ({
                     </div>
                     <div>
                         <p className="text-[--foreground] font-semibold text-lg">
-                            {formatISODate(bbq.date)}
+                            {formatEventDate(bbq.date)}
                         </p>
                         <p className="text-[--muted-foreground] text-sm mt-1">
                             Churrasco
