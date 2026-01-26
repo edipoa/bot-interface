@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle, Clock, Wallet, Copy } from 'lucide-react';
 import { Membership } from '@/lib/types/membership';
+import { formatEventDate } from '@/lib/dateUtils';
 import { toast } from 'sonner';
 
 interface SubscriptionStatusCardProps {
@@ -75,7 +76,7 @@ export const SubscriptionStatusCard: React.FC<SubscriptionStatusCardProps> = ({
             icon = <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-500" />;
             title = 'Assinatura Ativa';
             description = membership.nextDueDate
-                ? `Próximo vencimento: ${new Date(membership.nextDueDate).toLocaleDateString('pt-BR')}`
+                ? `Próximo vencimento: ${formatEventDate(membership.nextDueDate)}`
                 : 'Membro regular';
             break;
 

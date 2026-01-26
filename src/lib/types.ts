@@ -178,7 +178,7 @@ export interface Chat {
   chatId: string;
   label?: string;
   type: 'group' | 'private';
-  status: 'active' | 'inactive' | 'archived';
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
   memberCount: number;
   schedule?: ChatSchedule;
   createdAt: string;

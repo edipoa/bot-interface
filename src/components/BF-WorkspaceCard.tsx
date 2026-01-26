@@ -22,9 +22,9 @@ export const BFWorkspaceCard: React.FC<BFWorkspaceCardProps> = ({
 }) => {
   const getStatusBadge = () => {
     const statusMap = {
-      active: { variant: 'success' as const, label: '● Ativo' },
-      inactive: { variant: 'neutral' as const, label: 'Inativo' },
-      archived: { variant: 'error' as const, label: 'Arquivado' },
+      ACTIVE: { variant: 'success' as const, label: '● Ativo' },
+      INACTIVE: { variant: 'neutral' as const, label: 'Inativo' },
+      ARCHIVED: { variant: 'error' as const, label: 'Arquivado' },
     };
     const config = statusMap[chat.status];
     return <BFBadge variant={config.variant} size="sm">{config.label}</BFBadge>;

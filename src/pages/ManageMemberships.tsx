@@ -15,6 +15,7 @@ import { Users, DollarSign, AlertTriangle, MoreVertical, Edit, Check, Ban, X, Lo
 import { toast } from 'sonner';
 import { membershipsAPI, workspacesAPI, playersAPI } from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
+import { formatEventDate } from '@/lib/dateUtils';
 
 interface AdminMembershipListItem {
     id: string;
@@ -494,7 +495,7 @@ const ManageMemberships = () => {
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">Dia {membership.billingDay}</span>
                                                     <span className="text-xs text-muted-foreground">
-                                                        Próx: {new Date(membership.nextDueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                                                        Próx: {formatEventDate(membership.nextDueDate)}
                                                     </span>
                                                 </div>
                                             </TableCell>
@@ -505,7 +506,7 @@ const ManageMemberships = () => {
                                                 {membership.lastPaymentDate ? (
                                                     <span className="text-sm text-green-600 flex items-center gap-1">
                                                         <Check className="w-3 h-3" />
-                                                        {new Date(membership.lastPaymentDate).toLocaleDateString('pt-BR')}
+                                                        {formatEventDate(membership.lastPaymentDate)}
                                                     </span>
                                                 ) : (
                                                     <span className="text-xs text-muted-foreground italic">Nunca</span>

@@ -11,6 +11,7 @@ import { BFButton } from '../BF-Button';
 import { Membership } from '../../lib/types/membership';
 import { membershipsAPI } from '../../lib/axios';
 import { toast } from 'sonner';
+import { formatEventDate } from '../../lib/dateUtils';
 
 interface ManageSubscriptionModalProps {
     open: boolean;
@@ -60,7 +61,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
                 <div className="space-y-4 py-4">
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                         <span className="text-sm font-medium">Plano Atual</span>
-                        <span className="font-bold">R$ {(membership.planValueCents ? membership.planValueCents / 100 : 0).toFixed(2)} / mês</span>
+                        <span className="font-bold">R$ {(membership.planValue || 0).toFixed(2)} / mês</span>
                     </div>
 
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
@@ -76,7 +77,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
 
                     <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                         <span className="text-sm font-medium">Próximo Vencimento</span>
-                        <span className="text-sm">{new Date(membership.nextDueDate).toLocaleDateString()}</span>
+                        <span className="text-sm">{formatEventDate(membership.nextDueDate)}</span>
                     </div>
 
                     {confirmCancel ? (
@@ -101,7 +102,7 @@ export const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = (
                     ) : (
                         <div className="pt-4 border-t">
                             <BFButton
-                                variant="outline"
+                                variant="danger"
                                 className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                                 onClick={() => setConfirmCancel(true)}
                                 disabled={membership.status === 'INACTIVE' || membership.status === 'CANCELED_SCHEDULED'} // Use string literal matching backend enum

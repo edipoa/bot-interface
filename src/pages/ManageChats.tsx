@@ -60,12 +60,12 @@ export const ManageChats: React.FC = () => {
   };
 
   const handleToggleStatus = async (chat: Chat) => {
-    const newStatus = chat.status === 'active' ? 'inactive' : 'active';
+    const newStatus = chat.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
     try {
       // Optimistic update
       setChats(prev => prev.map(c => c.id === chat.id ? { ...c, status: newStatus } : c));
 
-      if (newStatus === 'active') {
+      if (newStatus === 'ACTIVE') {
         await chatsAPI.activateChat(chat.id);
         toast.success('Chat ativado com sucesso');
       } else {
@@ -163,18 +163,24 @@ export const ManageChats: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch
-                      checked={chat.status === 'active'}
+                      checked={chat.status === 'ACTIVE'}
                       onCheckedChange={() => handleToggleStatus(chat)}
+                      className="cursor-pointer"
                     />
-                    <BFBadge variant={chat.status === 'active' ? 'success' : 'neutral'}>
-                      {chat.status === 'active' ? 'Ativo' : 'Inativo'}
+                    <BFBadge variant={chat.status === 'ACTIVE' ? 'success' : 'neutral'}>
+                      {chat.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
                     </BFBadge>
                   </div>
                 </div>
 
-                <h3 className="font-semibold text-lg text-foreground mb-1 line-clamp-1" title={chat.name || chat.label}>
-                  {chat.name || chat.label || 'Chat sem nome'}
+                <h3 className="font-semibold text-lg text-foreground mb-1 line-clamp-1" title={chat.schedule?.title || chat.name}>
+                  {chat.schedule?.title || chat.name || 'Chat sem nome'}
                 </h3>
+                {chat.label && (
+                  <p className="text-xs font-medium text-primary mb-1 truncate" title={`Label: ${chat.label}`}>
+                    {chat.label}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground font-mono mb-4 truncate" title={chat.chatId}>
                   {chat.chatId}
                 </p>
