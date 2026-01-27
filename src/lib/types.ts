@@ -43,6 +43,7 @@ export interface Game {
   createdBy: string;
   createdAt: string;
   workspaceId: string;
+  allowCasualsEarly?: boolean;
 }
 
 export interface Debt {

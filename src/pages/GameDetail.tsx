@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { BFInput } from '../components/BF-Input';
 import { BFMoneyInput } from '../components/BF-MoneyInput';
 import { Search, UserPlus, Pencil, Check, X } from 'lucide-react';
+import { Switch } from '../components/ui/switch';
 
 interface Player {
   id: string;
@@ -67,6 +68,7 @@ interface GameInfo {
   waitlist: WaitlistPlayer[];
   outlist: OutlistPlayer[];
   financialSummary: FinancialSummary;
+  allowCasualsEarly?: boolean;
 }
 
 interface GameDetailProps {
@@ -260,6 +262,23 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
       fetchGameDetails();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao atualizar valor');
+    }
+  };
+
+  const handleToggleAllowCasuals = async (checked: boolean) => {
+    if (!gameId || !gameInfo) return;
+
+    // Optimistic update
+    setGameInfo(prev => prev ? { ...prev, allowCasualsEarly: checked } : null);
+
+    try {
+      await gamesAPI.updateGame(gameId, { allowCasualsEarly: checked });
+      toast.success(`Entrada de avulsos ${checked ? 'liberada' : 'bloqueada'} com sucesso!`);
+    } catch (error: any) {
+      // Revert on error
+      setGameInfo(prev => prev ? { ...prev, allowCasualsEarly: !checked } : null);
+      toast.error(error.response?.data?.message || 'Erro ao atualizar permissão');
+      // fetchGameDetails(); // Optional: ensure sync
     }
   };
 
@@ -595,6 +614,17 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
                   <span className="text-sm text-foreground">
                     {gameInfo.currentPlayers} / {gameInfo.maxPlayers}
                   </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm text-foreground font-medium">Liberar Avulsos Antecipado</span>
+                    <span className="text-xs text-muted-foreground">Ignora validação de data futura</span>
+                  </div>
+                  <Switch
+                    checked={gameInfo.allowCasualsEarly || false}
+                    onCheckedChange={handleToggleAllowCasuals}
+                  />
                 </div>
               </div>
             </div>

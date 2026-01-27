@@ -286,7 +286,7 @@ export const gamesAPI = {
   /**
    * Atualiza um jogo existente
    */
-  updateGame: async (gameId: string, data: { pricePerPlayer?: number }) => {
+  updateGame: async (gameId: string, data: any) => {
     const response = await api.put(`/games/${gameId}`, data);
     return response.data;
   },

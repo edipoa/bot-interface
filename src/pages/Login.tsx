@@ -30,6 +30,11 @@ export const Login: React.FC = () => {
           const user = await authAPI.getMe();
           tokenService.setUser(user);
 
+          if (user.role === 'admin') {
+            navigate('/admin/dashboard', { replace: true });
+            return;
+          }
+
           // Check if workspace is selected
           const storedWorkspaceId = localStorage.getItem('workspaceId');
           if (!storedWorkspaceId && user.workspaces && user.workspaces.length > 1) {
@@ -37,11 +42,7 @@ export const Login: React.FC = () => {
             return;
           }
 
-          if (user.role === 'admin') {
-            navigate('/admin/dashboard', { replace: true });
-          } else {
-            navigate('/user/dashboard', { replace: true });
-          }
+          navigate('/user/dashboard', { replace: true });
         } catch (error) {
           console.error('Token validation failed:', error);
           tokenService.clearTokens();
