@@ -19,6 +19,7 @@ export const AdminFinance: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [filterType, setFilterType] = useState<string>('all');
+    const [filterStatus, setFilterStatus] = useState<string>('all');
 
     // Pagination
     const [pagination, setPagination] = useState({
@@ -81,6 +82,7 @@ export const AdminFinance: React.FC = () => {
                     page: pagination.page,
                     limit: pagination.limit,
                     type: filterType === 'all' ? undefined : filterType as any,
+                    status: filterStatus === 'all' ? undefined : filterStatus as any,
                     search: debouncedSearch || undefined
                 }),
                 transactionsAPI.getStats(activeWorkspaceId),
@@ -119,7 +121,7 @@ export const AdminFinance: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeWorkspaceId, pagination.page, pagination.limit, filterType, debouncedSearch]);
+    }, [activeWorkspaceId, pagination.page, pagination.limit, filterType, filterStatus, debouncedSearch]);
 
     useEffect(() => {
         fetchData();
@@ -176,6 +178,19 @@ export const AdminFinance: React.FC = () => {
                                     <SelectItem value="all">Todos</SelectItem>
                                     <SelectItem value="INCOME">Receitas</SelectItem>
                                     <SelectItem value="EXPENSE">Despesas</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="w-40">
+                            <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    <SelectItem value="COMPLETED">Pago</SelectItem>
+                                    <SelectItem value="PENDING">Pendente</SelectItem>
+                                    <SelectItem value="OVERDUE">Vencido</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

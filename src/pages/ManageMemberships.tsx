@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Users, DollarSign, AlertTriangle, MoreVertical, Edit, Check, Ban, X, Loader2, Search as SearchIcon, WalletCards, Clock } from 'lucide-react';
+import { Users, DollarSign, AlertTriangle, MoreVertical, Edit, Check, Ban, X, Loader2, Search as SearchIcon, WalletCards, Clock, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { membershipsAPI, workspacesAPI, playersAPI } from '@/lib/axios';
 import { useAuth } from '@/hooks/useAuth';
@@ -124,11 +124,7 @@ const ManageMemberships = () => {
         try {
             setSearchingPlayers(true);
             const response = await playersAPI.searchPlayers(query);
-            // API returns { success: true, players: [] } or just [] depending on implementation
-            // axios.ts says: return response.data
-            // Let's assume response.players based on standard
             const players = response.players || response.data || response || [];
-            // Ensure players is an array
             setPlayerResults(Array.isArray(players) ? players : []);
         } catch (error) {
             console.error("Failed to search players", error);
@@ -136,6 +132,24 @@ const ManageMemberships = () => {
         } finally {
             setSearchingPlayers(false);
         }
+    };
+
+    const handleProcessBilling = async () => {
+        setConfirmState({
+            open: true,
+            title: 'Processar Ciclo de Faturamento?',
+            description: 'Isto gerará cobranças para todos os mensalistas ativos deste workspace no sistema. Deseja continuar?',
+            variant: 'default',
+            action: async () => {
+                try {
+                    const response = await membershipsAPI.processMonthlyBilling(activeWorkspaceId);
+                    toast.success(response.message || 'Faturamento processado com sucesso!');
+                    loadMemberships();
+                } catch (error: any) {
+                    toast.error('Erro ao processar: ' + (error.response?.data?.message || error.message));
+                }
+            }
+        });
     };
 
     const loadMemberships = async () => {
@@ -323,16 +337,16 @@ const ManageMemberships = () => {
     };
 
     return (
-        <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+        <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
             {/* Page Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Gestão de Mensalidades</h1>
                     <p className="text-muted-foreground mt-1">
                         CRM de Assinantes: Gerencie pagamentos e status
                     </p>
                 </div>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                     <Select
                         value={activeWorkspaceId}
                         onValueChange={setActiveWorkspaceId}
@@ -349,10 +363,22 @@ const ManageMemberships = () => {
                         </SelectContent>
                     </Select>
 
-                    <Button onClick={handleOpenCreateDialog} className="whitespace-nowrap">
-                        <Users className="mr-2 h-4 w-4" />
-                        Novo Mensalista
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button
+                            variant="secondary"
+                            onClick={handleProcessBilling}
+                            disabled={loading}
+                            className="flex-1 sm:flex-none whitespace-nowrap"
+                        >
+                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCw className="mr-2 h-4 w-4" />}
+                            <span className="sr-only sm:not-sr-only">Processar</span>
+                            <span className="sm:hidden">Cobranças</span>
+                        </Button>
+                        <Button onClick={handleOpenCreateDialog} className="flex-1 sm:flex-none whitespace-nowrap">
+                            <Users className="mr-2 h-4 w-4" />
+                            Novo
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -414,23 +440,25 @@ const ManageMemberships = () => {
             </div>
 
             {/* Filters & Search */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <Tabs value={filter} onValueChange={setFilter} className="w-full md:w-auto">
-                            <TabsList>
-                                <TabsTrigger value="all">Todos</TabsTrigger>
-                                <TabsTrigger value="active">Em Dia</TabsTrigger>
-                                <TabsTrigger value="overdue" className="text-yellow-600 data-[state=active]:bg-yellow-100">Devedores</TabsTrigger>
-                                <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
-                            </TabsList>
+            <Card className="overflow-hidden">
+                <CardHeader className="pb-3 px-4 md:px-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full">
+                        <Tabs value={filter} onValueChange={setFilter} className="w-full md:w-auto min-w-0 max-w-full">
+                            <div className="w-full overflow-x-auto pb-2 no-scrollbar">
+                                <TabsList className="inline-flex w-auto min-w-full md:min-w-0 justify-start md:justify-center h-auto p-1">
+                                    <TabsTrigger value="all">Todos</TabsTrigger>
+                                    <TabsTrigger value="active">Em Dia</TabsTrigger>
+                                    <TabsTrigger value="overdue" className="text-yellow-600 data-[state=active]:bg-yellow-100">Devedores</TabsTrigger>
+                                    <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
+                                </TabsList>
+                            </div>
                         </Tabs>
 
-                        <div className="relative w-full md:w-72">
+                        <div className="relative w-full md:w-72 min-w-0">
                             <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Buscar por nome ou telefone..."
-                                className="pl-9"
+                                placeholder="Buscar..."
+                                className="pl-9 w-full"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                             />
@@ -453,97 +481,174 @@ const ManageMemberships = () => {
                         </div>
                     ) : (
                         <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead>Membro</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Vencimento</TableHead>
-                                        <TableHead>Valor</TableHead>
-                                        <TableHead>Último Pag.</TableHead>
-                                        <TableHead className="text-right">Ações</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {memberships.map((membership) => (
-                                        <TableRow
-                                            key={membership.id}
-                                            className={
-                                                membership.status === 'SUSPENDED' ? 'bg-red-50 hover:bg-red-100/50' :
-                                                    membership.status === 'PENDING' ? 'bg-yellow-50/30 hover:bg-yellow-100/30' : ''
-                                            }
-                                        >
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
-                                                        <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                                                            {membership.user.name.substring(0, 2).toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div>
-                                                        <div className="font-medium text-foreground">{membership.user.name}</div>
-                                                        <div className="text-xs text-muted-foreground font-mono">
-                                                            {membership.user.phoneE164}
+                            {/* Desktop Table */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted/50">
+                                            <TableHead>Membro</TableHead>
+                                            <TableHead>Status</TableHead>
+                                            <TableHead>Vencimento</TableHead>
+                                            <TableHead>Valor</TableHead>
+                                            <TableHead>Último Pag.</TableHead>
+                                            <TableHead className="text-right">Ações</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {memberships.map((membership) => (
+                                            <TableRow
+                                                key={membership.id}
+                                                className={
+                                                    membership.status === 'SUSPENDED' ? 'bg-red-50 hover:bg-red-100/50' :
+                                                        membership.status === 'PENDING' ? 'bg-yellow-50/30 hover:bg-yellow-100/30' : ''
+                                                }
+                                            >
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
+                                                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                                                                {membership.user.name.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div>
+                                                            <div className="font-medium text-foreground">{membership.user.name}</div>
+                                                            <div className="text-xs text-muted-foreground font-mono">
+                                                                {membership.user.phoneE164}
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <StatusBadge status={membership.status} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">Dia {membership.billingDay}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Próx: {formatEventDate(membership.nextDueDate)}
+                                                        </span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    R$ {(membership.planValue || 0).toFixed(2)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {membership.lastPaymentDate ? (
+                                                        <span className="text-sm text-green-600 flex items-center gap-1">
+                                                            <Check className="w-3 h-3" />
+                                                            {formatEventDate(membership.lastPaymentDate)}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground italic">Nunca</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-48">
+                                                            <DropdownMenuItem onClick={() => handleManualPayment(membership)}>
+                                                                <DollarSign className="mr-2 h-4 w-4 text-green-600" />
+                                                                Registrar Pagamento
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem onClick={() => handleEdit(membership)}>
+                                                                <Edit className="mr-2 h-4 w-4" />
+                                                                Editar Contrato
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleSuspend(membership)} className="text-yellow-600">
+                                                                <Ban className="mr-2 h-4 w-4" />
+                                                                Suspender
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleCancel(membership)} className="text-red-600">
+                                                                <X className="mr-2 h-4 w-4" />
+                                                                Cancelar Assinatura
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* Mobile List View */}
+                            <div className="md:hidden divide-y">
+                                {memberships.map((membership) => (
+                                    <div key={membership.id} className={`p-4 ${membership.status === 'SUSPENDED' ? 'bg-red-50' :
+                                        membership.status === 'PENDING' ? 'bg-yellow-50/30' : ''
+                                        }`}>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-10 w-10 border border-background shadow-sm">
+                                                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                                                        {membership.user.name.substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <div className="font-medium text-foreground">{membership.user.name}</div>
+                                                    <StatusBadge status={membership.status} />
                                                 </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <StatusBadge status={membership.status} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">Dia {membership.billingDay}</span>
-                                                    <span className="text-xs text-muted-foreground">
-                                                        Próx: {formatEventDate(membership.nextDueDate)}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                                R$ {(membership.planValue || 0).toFixed(2)}
-                                            </TableCell>
-                                            <TableCell>
+                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="w-56">
+                                                    <DropdownMenuItem onClick={() => handleManualPayment(membership)}>
+                                                        <DollarSign className="mr-2 h-4 w-4 text-green-600" />
+                                                        Registrar Pagamento
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem onClick={() => handleEdit(membership)}>
+                                                        <Edit className="mr-2 h-4 w-4" />
+                                                        Editar Contrato
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleSuspend(membership)} className="text-yellow-600">
+                                                        <Ban className="mr-2 h-4 w-4" />
+                                                        Suspender
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleCancel(membership)} className="text-red-600">
+                                                        <X className="mr-2 h-4 w-4" />
+                                                        Cancelar Assinatura
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span className="text-muted-foreground block text-xs uppercase tracking-wider">Plano</span>
+                                                <span className="font-medium">R$ {(membership.planValue || 0).toFixed(2)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block text-xs uppercase tracking-wider">Vencimento</span>
+                                                <span className="font-medium">Dia {membership.billingDay}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block text-xs uppercase tracking-wider">Próx. Venc.</span>
+                                                <span className="font-medium">{formatEventDate(membership.nextDueDate)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block text-xs uppercase tracking-wider">Último Pag.</span>
                                                 {membership.lastPaymentDate ? (
-                                                    <span className="text-sm text-green-600 flex items-center gap-1">
-                                                        <Check className="w-3 h-3" />
+                                                    <span className="text-green-600 flex items-center gap-1 font-medium">
                                                         {formatEventDate(membership.lastPaymentDate)}
                                                     </span>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground italic">Nunca</span>
+                                                    <span className="text-muted-foreground italic">Nunca</span>
                                                 )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-48">
-                                                        <DropdownMenuItem onClick={() => handleManualPayment(membership)}>
-                                                            <DollarSign className="mr-2 h-4 w-4 text-green-600" />
-                                                            Registrar Pagamento
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => handleEdit(membership)}>
-                                                            <Edit className="mr-2 h-4 w-4" />
-                                                            Editar Contrato
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleSuspend(membership)} className="text-yellow-600">
-                                                            <Ban className="mr-2 h-4 w-4" />
-                                                            Suspender
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleCancel(membership)} className="text-red-600">
-                                                            <X className="mr-2 h-4 w-4" />
-                                                            Cancelar Assinatura
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </CardContent>
@@ -582,7 +687,7 @@ const ManageMemberships = () => {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={actionLoading}>
+                        <Button variant="destructive" onClick={() => setEditDialogOpen(false)} disabled={actionLoading}>
                             Cancelar
                         </Button>
                         <Button onClick={handleEditSubmit} disabled={actionLoading}>
@@ -650,7 +755,7 @@ const ManageMemberships = () => {
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setPaymentDialogOpen(false)} disabled={actionLoading}>
+                        <Button variant="destructive" onClick={() => setPaymentDialogOpen(false)} disabled={actionLoading}>
                             Cancelar
                         </Button>
                         <Button onClick={handlePaymentSubmit} disabled={actionLoading} className="bg-green-600 hover:bg-green-700 text-white">

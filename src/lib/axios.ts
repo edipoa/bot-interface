@@ -877,6 +877,10 @@ export const membershipsAPI = {
     const response = await api.post(`/memberships/${id}/cancel`, { immediate, workspaceId });
     return response.data;
   },
+  processMonthlyBilling: async (workspaceId: string) => {
+    const response = await api.post('/memberships/admin/process-billing', { workspaceId });
+    return response.data;
+  },
 };
 
 /**
