@@ -9,6 +9,8 @@ import { FinancialStatsCards, FinancialStatsDto } from '@/components/financial/F
 import { TransactionsTable, Transaction } from '@/components/financial/TransactionsTable';
 import { CreateTransactionModal } from '@/components/financial/CreateTransactionModal';
 import { FinancialCharts } from '@/components/financial/FinancialCharts';
+import { MessageCircle } from 'lucide-react';
+import { financialService } from '@/services/financial.service';
 
 export const AdminFinance: React.FC = () => {
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
@@ -40,6 +42,9 @@ export const AdminFinance: React.FC = () => {
 
     // Modal
     const [createOpen, setCreateOpen] = useState(false);
+
+    // Notification loading state
+    const [isNotifying, setIsNotifying] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -131,6 +136,36 @@ export const AdminFinance: React.FC = () => {
         setPagination(prev => ({ ...prev, page: newPage }));
     };
 
+    const handleNotifyPendingInvoices = async () => {
+        if (!activeWorkspaceId) {
+            toast.error('Workspace não identificado');
+            return;
+        }
+
+        setIsNotifying(true);
+        try {
+            const report = await financialService.notifyPendingInvoices(activeWorkspaceId);
+
+            if (report.totalFound === 0) {
+                toast.info('Nenhuma fatura pendente encontrada para o mês atual.');
+            } else {
+                toast.success(
+                    `Processo finalizado! Enviadas: ${report.sent}, Falhas: ${report.failed}`,
+                    {
+                        description: `Total de faturas encontradas: ${report.totalFound}`,
+                        duration: 5000,
+                    }
+                );
+            }
+        } catch (error: any) {
+            console.error('Error notifying pending invoices:', error);
+            const errorMessage = error?.response?.data?.message || 'Não foi possível disparar as notificações';
+            toast.error(errorMessage);
+        } finally {
+            setIsNotifying(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center px-1">
@@ -138,13 +173,24 @@ export const AdminFinance: React.FC = () => {
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gestão Financeira</h1>
                     <p className="text-sm text-gray-500">Acompanhe o fluxo de caixa do grupo</p>
                 </div>
-                <BFButton
-                    variant="primary"
-                    icon={<BFIcons.Plus size={20} />}
-                    onClick={() => setCreateOpen(true)}
-                >
-                    Nova Transação
-                </BFButton>
+                <div className="flex gap-3">
+                    <BFButton
+                        variant="secondary"
+                        icon={<MessageCircle size={20} />}
+                        onClick={handleNotifyPendingInvoices}
+                        isLoading={isNotifying}
+                        disabled={isNotifying || !activeWorkspaceId}
+                    >
+                        Notificar Cobranças
+                    </BFButton>
+                    <BFButton
+                        variant="primary"
+                        icon={<BFIcons.Plus size={20} />}
+                        onClick={() => setCreateOpen(true)}
+                    >
+                        Nova Transação
+                    </BFButton>
+                </div>
             </div>
 
             <FinancialStatsCards stats={stats} loading={loading} />

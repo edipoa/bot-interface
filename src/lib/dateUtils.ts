@@ -60,7 +60,6 @@ export function formatEventDate(isoDateString: string): string {
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
     const year = date.getUTCFullYear();
 
-    // Optional: Format time if needed using getUTCHours/Minutes
 
     return `${day}/${month}/${year}`;
 }
