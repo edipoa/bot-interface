@@ -9,13 +9,87 @@ import { FinancialStatsCards, FinancialStatsDto } from '@/components/financial/F
 import { TransactionsTable, Transaction } from '@/components/financial/TransactionsTable';
 import { CreateTransactionModal } from '@/components/financial/CreateTransactionModal';
 import { FinancialCharts } from '@/components/financial/FinancialCharts';
-import { MessageCircle } from 'lucide-react';
 import { financialService } from '@/services/financial.service';
+import { EditTransactionModal } from '@/components/EditTransactionModal';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const AdminFinance: React.FC = () => {
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [_, setIsNotifyingSingles] = useState(false);
+
+    // Confirmation Modal State
+    const [confirmState, setConfirmState] = useState<{
+        open: boolean;
+        title: string;
+        description: string;
+        variant: 'destructive' | 'default' | 'success';
+        action?: () => Promise<void>;
+    }>({
+        open: false,
+        title: '',
+        description: '',
+        variant: 'success'
+    });
+
+    const handleNotifySingles = async () => {
+        if (!activeWorkspaceId) return;
+
+        setConfirmState({
+            open: true,
+            title: 'Enviar cobranças avulsas?',
+            description: 'Isto vai enviar cobranças avulsas deste workspace. Deseja continuar?',
+            variant: 'success',
+            action: async () => {
+                setIsNotifyingSingles(true);
+
+                try {
+                    const response = await transactionsAPI.notifySingles(activeWorkspaceId);
+                    toast.success(response.message || 'Cobranças enviadas com sucesso!');
+                    fetchData();
+                } catch (error: any) {
+                    toast.error('Erro ao enviar cobranças: ' + (error.response?.data?.message || error.message));
+                } finally {
+                    setIsNotifyingSingles(false);
+                }
+            }
+        });
+    };
+    //Modal
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+    const handleEditClick = (transaction: Transaction) => {
+        setSelectedTransaction(transaction);
+        setIsEditModalOpen(true);
+    };
+
+    const handleSaveTransaction = async (id: string, data: { status: string; description: string }) => {
+        const response = await transactionsAPI.update(id, data);
+
+        if (response.success) {
+            fetchData();
+
+            toast.success('Atualizado com sucesso!', {
+                description: 'Transação atualizada com sucesso!'
+            });
+
+        } else {
+            toast.error('Erro ao atualizar transação!', {
+                description: 'Transação não atualizada!'
+            });
+        }
+    };
 
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
@@ -168,25 +242,48 @@ export const AdminFinance: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center px-1">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between px-1">
+
+                {/* Título e Subtítulo */}
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Gestão Financeira</h1>
-                    <p className="text-sm text-gray-500">Acompanhe o fluxo de caixa do grupo</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        Gestão Financeira
+                    </h1>
+                    <p className="text-sm text-gray-500">
+                        Acompanhe o fluxo de caixa do grupo
+                    </p>
                 </div>
-                <div className="flex gap-3">
+
+                {/* Grupo de Botões */}
+                {/* Mobile: Coluna (flex-col), Largura Total (w-full) */}
+                {/* Desktop (sm): Linha (flex-row), Largura Auto (w-auto) */}
+                <div className="flex flex-col gap-2 w-full sm:w-auto sm:flex-row">
+
                     <BFButton
                         variant="secondary"
-                        icon={<MessageCircle size={20} />}
+                        icon={<BFIcons.MessageCircle size={20} />}
                         onClick={handleNotifyPendingInvoices}
-                        isLoading={isNotifying}
-                        disabled={isNotifying || !activeWorkspaceId}
+                        disabled={isNotifying || loading}
+                        className="w-full sm:w-auto justify-center" // Força esticar no mobile
                     >
-                        Notificar Cobranças
+                        Cobrar Mensalidades
                     </BFButton>
+
+                    <BFButton
+                        variant="secondary"
+                        icon={<BFIcons.Bell size={20} />}
+                        onClick={handleNotifySingles}
+                        disabled={isNotifying || loading}
+                        className="w-full sm:w-auto justify-center"
+                    >
+                        Cobrar Avulsos
+                    </BFButton>
+
                     <BFButton
                         variant="primary"
                         icon={<BFIcons.Plus size={20} />}
                         onClick={() => setCreateOpen(true)}
+                        className="w-full sm:w-auto justify-center"
                     >
                         Nova Transação
                     </BFButton>
@@ -247,11 +344,46 @@ export const AdminFinance: React.FC = () => {
                     <TransactionsTable
                         transactions={transactions}
                         loading={loading}
+                        onEdit={handleEditClick}
                         pagination={{
                             ...pagination,
                             onPageChange: handlePageChange
                         }}
                     />
+
+                    <EditTransactionModal
+                        isOpen={isEditModalOpen}
+                        onClose={() => setIsEditModalOpen(false)}
+                        transaction={selectedTransaction}
+                        onSave={handleSaveTransaction}
+                    />
+                    <AlertDialog
+                        open={confirmState.open}
+                        onOpenChange={(isOpen) => setConfirmState(prev => ({ ...prev, open: isOpen }))}
+                    >
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>{confirmState.title}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {confirmState.description}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel className="bg-blue-600 hover:bg-blue-700">Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={async () => {
+                                        if (confirmState.action) {
+                                            await confirmState.action();
+                                        }
+                                        setConfirmState(prev => ({ ...prev, open: false }));
+                                    }}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    Confirmar
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 

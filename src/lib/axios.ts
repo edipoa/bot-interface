@@ -965,6 +965,16 @@ export const transactionsAPI = {
     const response = await api.post('/transactions', data);
     return response.data;
   },
+
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/transactions/${id}`, data);
+    return response.data;
+  },
+
+  notifySingles: async (workspaceId: string) => {
+    const response = await api.post(`/transactions/${workspaceId}/notify-singles`);
+    return response.data;
+  }
 };
 
 

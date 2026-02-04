@@ -232,7 +232,7 @@ export const EditPlayerModal: React.FC<EditPlayerModalProps> = ({
                     <DialogFooter>
                         <BFButton
                             type="button"
-                            variant="outline"
+                            variant="danger"
                             onClick={onClose}
                             disabled={isSaving}
                         >

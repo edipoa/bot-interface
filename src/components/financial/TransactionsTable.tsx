@@ -3,6 +3,9 @@ import { BFTable } from '../BF-Table';
 import { BFBadge } from '../BF-Badge';
 import { BFPagination } from '../BF-Pagination';
 import type { BFListViewColumn } from '../BFListView';
+import { Button } from '../ui/button';
+import { Edit, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '../ui/dropdown-menu';
 
 export interface Transaction {
     id: string;
@@ -27,20 +30,21 @@ interface TransactionsTableProps {
         onPageChange: (page: number) => void;
     };
     onRowClick?: (transaction: Transaction) => void;
+    onEdit?: (transaction: Transaction) => void;
 }
 
 export const TransactionsTable: React.FC<TransactionsTableProps> = ({
     transactions,
     loading: _loading,
     pagination,
-    onRowClick
+    onEdit
 }) => {
     const getStatusBadge = (status: string) => {
         const map: any = {
             'COMPLETED': { variant: 'success', label: 'Concluído' },
             'PENDING': { variant: 'warning', label: 'Pendente' },
-            'CANCELLED': { variant: 'neutral', label: 'Cancelado' },
-            'OVERDUE': { variant: 'danger', label: 'Vencido' }
+            'CANCELLED': { variant: 'info', label: 'Cancelado' },
+            'OVERDUE': { variant: 'error', label: 'Vencido' }
         };
         const config = map[status] || { variant: 'neutral', label: status };
         return <BFBadge variant={config.variant}>{config.label}</BFBadge>;
@@ -51,6 +55,15 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
             key: 'date',
             label: 'Data',
             render: (val: string) => new Date(val).toLocaleDateString('pt-BR')
+        },
+        {
+            key: 'user',
+            label: 'Usuário',
+            render: (val: { _id: string, name: string } | null) => (
+                <BFBadge variant="neutral">
+                    {val?.name || 'Sem vínculo'}
+                </BFBadge>
+            )
         },
         {
             key: 'category',
@@ -84,6 +97,54 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
             key: 'status',
             label: 'Status',
             render: (val: string) => getStatusBadge(val)
+        },
+        {
+            key: 'actions',
+            label: 'Ações',
+            render: (_: string, row: Transaction) => {
+                const isMembership = row.category === "MEMBERSHIP";
+
+                return (
+                    <div className="flex justify-end items-center" onClick={(e) => e.stopPropagation()}>
+
+                        {/* VISÃO DESKTOP: Botões Visíveis (hidden no mobile) */}
+                        <div className="hidden md:flex gap-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onEdit?.(row)}
+                                disabled={isMembership}
+                                className={isMembership ? "opacity-50 cursor-not-allowed" : ""}
+                                title="Editar Transação"
+                            >
+                                <Edit size={16} />
+                            </Button>
+                        </div>
+
+                        {/* VISÃO MOBILE: Menu Dropdown (visible apenas no mobile) */}
+                        <div className="flex md:hidden">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
+                                        <span className="sr-only">Abrir menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                        onClick={() => onEdit?.(row)}
+                                        disabled={isMembership}
+                                    >
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        <span>Editar</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </div>
+                );
+            }
         }
     ];
 
@@ -92,7 +153,6 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = ({
             <BFTable
                 columns={columns}
                 data={transactions}
-                onRowClick={onRowClick}
                 emptyMessage="Nenhuma transação encontrada"
             />
 
