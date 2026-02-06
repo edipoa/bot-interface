@@ -76,12 +76,12 @@ export const ManagePlayers: React.FC = () => {
 
     try {
       setLoading(true);
-      console.log('[DEBUG] Calling playersAPI.getPlayers...');
       const response = await playersAPI.getPlayers({
         search: debouncedSearchTerm || undefined,
         status: filterStatus as 'active' | 'inactive' | 'all',
         page: pagination.page,
         limit: pagination.limit,
+        workspaceId: workspaceId,
       });
 
       setPlayers(response.players || []);

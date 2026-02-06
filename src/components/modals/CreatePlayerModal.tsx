@@ -18,7 +18,7 @@ import { playersAPI } from '../../lib/axios';
 
 const playerSchema = z.object({
     name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
-    phone: z.string().regex(/^\(\d{2}\) \d{5}-\d{4}$/, 'Formato inválido: (99) 99999-9999'),
+    phone: z.string().regex(/^\(\d{2}\) \d{4,5}-\d{4}$/, 'Formato inválido: (99) 9999-9999 ou (99) 99999-9999'),
     position: z.enum(['GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'STRIKER']).optional(),
     nick: z.string().optional(),
 });
@@ -53,10 +53,19 @@ export const CreatePlayerModal: React.FC<CreatePlayerModalProps> = ({
     });
 
     const formatPhoneInput = (value: string) => {
-        const digits = value.replace(/\D/g, '');
+        let digits = value.replace(/\D/g, '');
+        if (digits.length > 11) digits = digits.slice(0, 11);
+
         if (digits.length <= 2) return digits;
-        if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+
+        // If we have more than 10 digits, use 5-4 format (mobile)
+        if (digits.length > 10) {
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+        }
+
+        // Otherwise use 4-4 format (landline/legacy)
+        if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
     };
 
     const onSubmit = async (data: PlayerFormData) => {

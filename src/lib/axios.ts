@@ -628,6 +628,7 @@ export const playersAPI = {
     status?: 'active' | 'inactive' | 'all';
     page?: number;
     limit?: number;
+    workspaceId?: string;
   }) => {
     const queryParams: any = {
       page: params?.page || 1,
@@ -640,6 +641,10 @@ export const playersAPI = {
 
     if (params?.status && params.status !== 'all') {
       queryParams.status = params.status;
+    }
+
+    if (params?.workspaceId) {
+      queryParams.workspaceId = params.workspaceId;
     }
 
     const response = await api.get('/players', { params: queryParams });
