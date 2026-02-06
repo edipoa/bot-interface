@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import { BFButton } from '../components/BF-Button';
 import { BFInput } from '../components/BF-Input';
 import { BFIcons } from '../components/BF-Icons';
-import { transactionsAPI, workspacesAPI } from '@/lib/axios';
+import { transactionsAPI } from '@/lib/axios';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FinancialStatsCards, FinancialStatsDto } from '@/components/financial/FinancialStatsCards';
@@ -23,8 +24,10 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const AdminFinance: React.FC = () => {
-    const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
-    const [loading, setLoading] = useState(true);
+    const { currentWorkspace } = useAuth();
+    const activeWorkspaceId = currentWorkspace?.id || '';
+
+    const [loading, setLoading] = useState(false); // Default to false since we wait for activeWorkspaceId which is immediate from context (or null)
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [_, setIsNotifyingSingles] = useState(false);
 
@@ -129,23 +132,8 @@ export const AdminFinance: React.FC = () => {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
-    // Initialize Workspace
-    useEffect(() => {
-        const fetchWorkspace = async () => {
-            try {
-                const response = await workspacesAPI.getAllWorkspaces();
-                if (response.workspaces && response.workspaces.length > 0) {
-                    const mostRecent = response.workspaces.sort((a: any, b: any) =>
-                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                    )[0];
-                    setActiveWorkspaceId(mostRecent.id);
-                }
-            } catch (error) {
-                console.error('Error fetching workspace:', error);
-            }
-        };
-        fetchWorkspace();
-    }, []);
+    // Initialize Workspace - REMOVED (Handled by AuthContext)
+
 
     // Fetch Data
     const fetchData = useCallback(async () => {

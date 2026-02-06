@@ -29,6 +29,7 @@ interface Player {
   slot: number;
   isGoalkeeper: boolean;
   isPaid: boolean;
+  guest?: boolean;
 }''
 
 interface WaitlistPlayer {
@@ -85,7 +86,7 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
   const [loading, setLoading] = useState(true);
   const [gameToClose, setGameToClose] = useState<string | null>(null);
   const [closingGame, setClosingGame] = useState(false);
-  const [playerToRemove, setPlayerToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [playerToRemove, setPlayerToRemove] = useState<{ id: string; name: string; slot: number; guest?: boolean } | null>(null);
   const [removingPlayer, setRemovingPlayer] = useState(false);
   const [gameToCancel, setGameToCancel] = useState<string | null>(null);
   const [cancelingGame, setCancelingGame] = useState(false);
@@ -142,8 +143,15 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
 
     try {
       setRemovingPlayer(true);
-      await gamesAPI.removePlayerFromGame(gameId, playerToRemove.id);
-      toast.success(`🗑️ ${playerToRemove.name} removido do jogo!`);
+
+      if (playerToRemove.guest) {
+        await gamesAPI.removeGuest(gameId, playerToRemove.slot);
+        toast.success(`🗑️ Convidado ${playerToRemove.name} removido!`);
+      } else {
+        await gamesAPI.removePlayer(gameId, playerToRemove.id);
+        toast.success(`🗑️ ${playerToRemove.name} removido do jogo!`);
+      }
+
       setPlayerToRemove(null);
       fetchGameDetails();
     } catch (error: any) {
@@ -451,7 +459,12 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
                   <BFButton
                     variant="danger"
                     size="sm"
-                    onClick={() => setPlayerToRemove({ id: player.id, name: player.name })}
+                    onClick={() => setPlayerToRemove({
+                      id: player.id,
+                      name: player.name,
+                      slot: player.slot,
+                      guest: player.guest
+                    })}
                     data-test={`remove-player-${player.id}`}
                   >
                     ×
@@ -815,7 +828,12 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
                             <BFButton
                               variant="danger"
                               size="sm"
-                              onClick={() => setPlayerToRemove({ id: player.id, name: player.name })}
+                              onClick={() => setPlayerToRemove({
+                                id: player.id,
+                                name: player.name,
+                                slot: player.slot,
+                                guest: player.guest
+                              })}
                               data-test={`remove-player-${player.id}`}
                               className="flex-1"
                             >
@@ -1002,7 +1020,11 @@ export const GameDetail: React.FC<GameDetailProps> = ({ gameId: propGameId, onBa
           <AlertDialogHeader>
             <AlertDialogTitle>Remover Jogador</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{playerToRemove?.name}</strong> deste jogo? Esta ação não pode ser desfeita.
+              {playerToRemove?.guest ? (
+                <>Remover o convidado <strong>{playerToRemove.name}</strong> (Slot {playerToRemove.slot})?</>
+              ) : (
+                <>Tem certeza que deseja remover <strong>{playerToRemove?.name}</strong> deste jogo? Esta ação não pode ser desfeita.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

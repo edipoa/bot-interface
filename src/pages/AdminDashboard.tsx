@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { BFCard, BFCardHeader, BFCardContent } from '../components/BF-Card';
 import { BFBadge } from '../components/BF-Badge';
 import { BFIcons } from '../components/BF-Icons';
 import { BFSelect } from '../components/BF-Select';
-import { api, workspacesAPI } from '../lib/axios';
+import { api } from '../lib/axios';
 import { formatEventDate, formatEventTime } from '../lib/dateUtils';
 import { toast } from 'sonner';
 
@@ -49,9 +50,10 @@ interface DashboardData {
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { workspaces, currentWorkspace } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   const [selectedWorkspace, setSelectedWorkspace] = useState<string>('');
 
   useEffect(() => {
@@ -59,18 +61,9 @@ export const AdminDashboard: React.FC = () => {
 
     const init = async () => {
       try {
-        const data = await workspacesAPI.getAllWorkspaces();
-        const workspacesList = data.workspaces || data;
-        setWorkspaces(workspacesList);
-
-        let initialWorkspace = 'all';
-        let workspaceId = null;
-
-        if (workspacesList.length > 0) {
-          const mostRecentWorkspace = workspacesList[0];
-          initialWorkspace = mostRecentWorkspace.slug;
-          workspaceId = mostRecentWorkspace.id;
-        }
+        // Use workspaces from context
+        const initialWorkspace = currentWorkspace?.slug || 'all';
+        const workspaceId = currentWorkspace?.id || null;
 
         setSelectedWorkspace(initialWorkspace);
 
@@ -95,7 +88,7 @@ export const AdminDashboard: React.FC = () => {
     return () => {
       abortController.abort();
     };
-  }, []);
+  }, [currentWorkspace]);
 
   const fetchDashboardData = async (workspace: string) => {
     try {

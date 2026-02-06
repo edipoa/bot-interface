@@ -7,7 +7,7 @@ import { BFIcons } from '../components/BF-Icons';
 import { playersAPI } from '../lib/axios';
 
 export const UserProfile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,13 +32,19 @@ export const UserProfile: React.FC = () => {
       });
 
       const updatedUserData = response.data || response;
+
+      // Update local storage and context state immediately
       updateUser({
         ...user,
         name: updatedUserData.name || formData.name,
-        isGoalkeeper: updatedUserData.isGoalkeeper ?? formData.isGoalkeeper,
+        isGoalkeeper: updatedUserData.isGoalkeeper ?? updatedUserData.isGoalie ?? formData.isGoalkeeper,
       });
 
+      // Verify reliability by fetching fresh data from server
+      await refreshUser();
+
       setSuccess('Perfil atualizado com sucesso!');
+
       setIsEditing(false);
     } catch (error: any) {
       console.error('Error updating profile:', error);

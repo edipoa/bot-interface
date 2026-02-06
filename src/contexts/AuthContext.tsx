@@ -1,10 +1,11 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authAPI, tokenService } from '../lib/axios';
+import { authAPI, tokenService, playersAPI } from '../lib/axios';
 
 interface Workspace {
     id: string;
     name: string;
+    slug: string;
     role: string;
     settings?: any;
 }
@@ -27,6 +28,7 @@ interface AuthContextData {
     signIn: (phone: string, otp: string) => Promise<void>;
     signOut: () => void;
     refreshUser: () => Promise<void>;
+    updateUser: (data: User) => void;
     isAuthenticated: boolean;
     loading: boolean;
 }
@@ -42,11 +44,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     useEffect(() => {
         const init = async () => {
             const storedUser = tokenService.getUser();
-            // Try to load workspace from local storage
             const storedWorkspaceId = localStorage.getItem('workspaceId');
 
             if (storedUser) {
-                // Initial optimistic load
                 setUser(storedUser);
                 if (storedUser.workspaces) {
                     setWorkspaces(storedUser.workspaces);
@@ -56,17 +56,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                 }
 
-                // Silent refresh to ensure data is fresh (and get workspaces if missing in storage)
                 try {
-                    const onlineUser = await authAPI.getMe();
-                    setUser(onlineUser);
-                    if (onlineUser.workspaces) {
-                        setWorkspaces(onlineUser.workspaces);
+                    const basicUser = await authAPI.getMe();
+
+                    const userId = basicUser.id || basicUser._id;
+                    let fullUser = basicUser;
+
+                    if (userId) {
+                        try {
+                            const playerDetails = await playersAPI.getPlayerById(userId);
+                            fullUser = { ...basicUser, ...playerDetails };
+                        } catch (err) {
+                            console.warn('Init: Failed to fetch full details', err);
+                        }
+                    }
+
+                    const mappedUser = {
+                        ...fullUser,
+                        isGoalkeeper: fullUser.isGoalkeeper ?? fullUser.isGoalie
+                    };
+
+                    setUser(mappedUser);
+                    if (mappedUser.workspaces) {
+                        setWorkspaces(mappedUser.workspaces);
                         if (storedWorkspaceId) {
-                            const found = onlineUser.workspaces.find((w: Workspace) => w.id === storedWorkspaceId);
+                            const found = mappedUser.workspaces.find((w: Workspace) => w.id === storedWorkspaceId);
                             if (found) setCurrentWorkspace(found);
-                        } else if (onlineUser.workspaces.length === 1) {
-                            setCurrentWorkspace(onlineUser.workspaces[0]);
+                        } else if (mappedUser.workspaces.length === 1) {
+                            setCurrentWorkspace(mappedUser.workspaces[0]);
                         }
                     }
                 } catch (e) {
@@ -83,27 +100,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const response = await authAPI.verifyOTP(phone, otp);
         const userData = response.user || (response.data?.user);
 
-        // Save user to state and localStorage (via tokenService inside verifyOTP probably handles token/user persistence, but we double ensure here)
-        setUser(userData);
-        if (userData.workspaces) {
-            setWorkspaces(userData.workspaces);
+        const mappedUser = {
+            ...userData,
+            isGoalkeeper: userData.isGoalkeeper ?? userData.isGoalie
+        };
 
-            // Auto-select if only 1
-            if (userData.workspaces.length === 1) {
-                selectWorkspace(userData.workspaces[0].id);
-                // Redirect will be handled by UI observing changes or explicitly here if passed navigate function
-                // But usually better to let the Login page handle navigation based on state result
-            } else if (userData.workspaces.length === 0) {
-                // Logic for no workspace
+        setUser(mappedUser);
+        if (mappedUser.workspaces) {
+            setWorkspaces(mappedUser.workspaces);
+
+            if (mappedUser.workspaces.length === 1) {
+                selectWorkspace(mappedUser.workspaces[0].id);
+            } else if (mappedUser.workspaces.length === 0) {
                 setCurrentWorkspace(null);
             } else {
-                // Determine if we have a stored preference valid for this user
                 const storedWorkspaceId = localStorage.getItem('workspaceId');
-                const found = userData.workspaces.find((w: Workspace) => w.id === storedWorkspaceId);
+                const found = mappedUser.workspaces.find((w: Workspace) => w.id === storedWorkspaceId);
                 if (found) {
                     selectWorkspace(found.id);
                 } else {
-                    // No valid selection, clear current
                     setCurrentWorkspace(null);
                     localStorage.removeItem('workspaceId');
                 }
@@ -125,23 +140,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const refreshUser = async () => {
         try {
             setLoading(true);
-            const userData = await authAPI.getMe();
-            setUser(userData);
-            if (userData.workspaces) {
-                setWorkspaces(userData.workspaces);
+            const basicUser = await authAPI.getMe();
+
+            // Fetch full profile to ensure we have all fields (like isGoalie which might be missing in /me)
+            // Use _id or id depending on what's available
+            const userId = basicUser.id || basicUser._id;
+            let fullUser = basicUser;
+
+            if (userId) {
+                try {
+                    const playerDetails = await playersAPI.getPlayerById(userId);
+                    fullUser = { ...basicUser, ...playerDetails };
+                } catch (err) {
+                    console.warn('Failed to fetch full player details, using basic info', err);
+                }
+            }
+
+            const mappedUser = {
+                ...fullUser,
+                isGoalkeeper: fullUser.isGoalkeeper ?? fullUser.isGoalie
+            };
+
+            setUser(mappedUser);
+            if (mappedUser.workspaces) {
+                setWorkspaces(mappedUser.workspaces);
 
                 // Restore current workspace or default
                 const storedId = localStorage.getItem('workspaceId');
                 if (storedId) {
-                    const found = userData.workspaces.find((w: Workspace) => w.id === storedId);
+                    const found = mappedUser.workspaces.find((w: Workspace) => w.id === storedId);
                     if (found) setCurrentWorkspace(found);
-                } else if (!currentWorkspace && userData.workspaces.length > 0) {
+                } else if (!currentWorkspace && mappedUser.workspaces.length > 0) {
                     // Auto select first if none selected
-                    setCurrentWorkspace(userData.workspaces[0]);
+                    setCurrentWorkspace(mappedUser.workspaces[0]);
                 }
             }
             // Update local storage
-            tokenService.setUser(userData);
+            tokenService.setUser(mappedUser);
         } catch (error) {
             console.error('Failed to refresh user', error);
         } finally {
@@ -166,6 +201,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             signIn,
             signOut,
             refreshUser,
+            updateUser: (data: User) => {
+                setUser(data);
+                tokenService.setUser(data);
+            },
             isAuthenticated: !!user,
             loading
         }}>

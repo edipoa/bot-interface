@@ -316,10 +316,25 @@ export const gamesAPI = {
   },
 
   /**
-   * Remove um jogador de um jogo
+   * Remove um jogador de um jogo (Legacy alias)
    */
   removePlayerFromGame: async (gameId: string, playerId: string) => {
-    const response = await api.delete(`/games/${gameId}/players/${playerId}`);
+    return gamesAPI.removePlayer(gameId, playerId);
+  },
+
+  /**
+   * Remove um jogador
+   */
+  removePlayer: async (gameId: string, userId: string) => {
+    const response = await api.post(`/games/${gameId}/remove-player`, { userId });
+    return response.data;
+  },
+
+  /**
+   * Remove um convidado de um jogo
+   */
+  removeGuest: async (gameId: string, slot: number) => {
+    const response = await api.post(`/games/${gameId}/remove-guest`, { slot });
     return response.data;
   },
 
