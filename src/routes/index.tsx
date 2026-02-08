@@ -25,6 +25,7 @@ import { BBQDemo } from '@/pages/BBQDemo';
 import { BBQDetails } from '@/pages/BBQDetails';
 import { SelectWorkspace } from '../pages/SelectWorkspace';
 import NoWorkspace from '../pages/NoWorkspace';
+import { HelpPage } from '../pages/HelpPage';
 
 export const router = createBrowserRouter([
   {
@@ -38,6 +39,11 @@ export const router = createBrowserRouter([
         <SelectWorkspace />
       </ProtectedRoute>
     ),
+  },
+
+  {
+    path: '/help',
+    element: <HelpPage />,
   },
 
   {
